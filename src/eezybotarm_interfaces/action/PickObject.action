@@ -1,0 +1,13 @@
+# 1. GOAL (Request from CV-node to server)
+geometry_msgs/PoseStamped target_pose
+string object_class
+float32 approach_distance              # approach distance before grasping
+---
+# 2. RESULT (Response after completion)
+bool success
+float32 execution_time                 # execution time (in seconds)
+string error_code                      # error description, if success == false
+---
+# 3. FEEDBACK (current state)
+string current_phase                   # current phase (e.g. "APPROACHING", "GRASPING", "PLACING")
+float32 progress_percentage            # progress percentage from 0.0 to 100.0

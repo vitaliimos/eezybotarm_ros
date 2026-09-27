@@ -1,0 +1,9 @@
+<library path="eezybotarm_hardware">
+  <class name="eezybotarm_hardware/EezyBotArmHardware"
+         type="eezybotarm_hardware::EezyBotArmHardware"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ros2_control Hardware Interface for EEZYbotARM MK2
+    </description>
+  </class>
+</library>

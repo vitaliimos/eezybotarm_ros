@@ -1,0 +1,228 @@
+<?xml version="1.0"?>
+
+<robot name="eezybotarm">
+
+<material name="red">
+    <color rgba="1.0 0.0 0.0 1.0"/>
+  </material>
+  <material name="dark_green">
+    <color rgba="0.0 0.275 0.0 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0.0 0.0 1.0 1.0"/>
+  </material>
+
+<!-- BASE LINK -->
+  <link
+    name="base_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/012_base.stl" />
+      </geometry>
+      <material name="red"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/012_base.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+<!-- HIP -->
+  <joint name="waist_joint" type="revolute">
+    <origin xyz="0 0 0.05" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="turret_link" />
+    <axis xyz="0 0 1" />
+    <limit effort="0" velocity="0"
+      lower="-0.7854" upper="0.7854"/>
+  </joint>
+
+<!--HIP-->
+  <link
+    name="turret_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 -1.570796325" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/001_base.stl" />
+      </geometry>
+      <material name="dark_green"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 -1.570796325" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/001_base.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+<!-- SHOULDER -->
+  <joint name="shoulder_joint" type="revolute">
+    <origin xyz="0 -0.005 0.037" rpy="0 0 0" />
+    <parent link="turret_link" />
+    <child link="shoulder_link" />
+    <axis xyz="0 1 0" />
+    <limit effort="0" velocity="0"
+      lower="-0.45" upper="0.80"/>
+  </joint>
+
+<!-- SHOULDER -->
+  <link name="shoulder_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 3.14159" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/002_mainarm.stl" />
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 3.14159" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/002_mainarm.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- VIRTUAL MIMIC JOINT 2-->
+  <joint name="shoulder_mimic_joint" type="revolute">
+    <origin xyz="0 -0.0011 0.135" rpy="0 0 0" />
+    <parent link="shoulder_link"/>
+    <child link="virtual_parallelogram_link"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="30" velocity="1.0" lower="-3.14159" upper="3.14159" />
+    <mimic joint="shoulder_joint" multiplier="-1" offset="0" />
+  </joint>
+
+  <link name="virtual_parallelogram_link" />
+
+<!-- ELBOW -->
+  <joint name="elbow_joint" type="revolute">
+    <origin xyz="0 0.013 0" rpy="0 0 0" />
+    <parent link="virtual_parallelogram_link" />
+    <child link="forearm_link" />
+    <axis xyz="0 1 0" />
+    <limit effort="0" velocity="0" lower="0" upper="0.55"/>
+  </joint>
+
+<!-- ELBOW -->
+  <link name="forearm_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/006_horarm.stl" />
+      </geometry>
+      <material name="red"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/006_horarm.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- CLAW SUPPORT -->
+  <joint name="wrist_joint" type="revolute">
+    <origin xyz="0.1468 -0.005 0" rpy="0 0 0" />
+    <parent link="forearm_link" />
+    <child link="wrist_link" />
+    <axis xyz="0 1 0" />
+    <limit effort="0" velocity="0" lower="-3.14159" upper="3.14159"/>
+    <mimic joint="elbow_joint" multiplier="-1" offset="0" />
+  </joint>
+
+  <!-- LAW SUPPORT -->
+  <link name="wrist_link">
+    <visual>
+      <origin xyz="0.0393 0.0075 -0.0065" rpy="0 0 1.570796325" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/009_trialinkfront.stl" />
+      </geometry>
+      <material name="dark_green"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0393 0.0075 -0.0065" rpy="0 0 1.570796325" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/009_trialinkfront.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- CLAW BASE -->
+  <joint name="claw_base_joint" type="fixed">
+    <origin xyz="0.045 -0.0015 -0.009" rpy="-0 0 0" />
+    <parent link="wrist_link" />
+    <child link="claw_base" />
+  </joint>
+
+  <!-- CLAW BASE -->
+  <link name="claw_base">
+    <visual>
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/014_clawbase.stl" />
+      </geometry>
+      <material name="blue" />
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/014_clawbase.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- FINGERS -->
+  <joint name="finger_left_joint" type="revolute">
+    <origin xyz="0.0085 0.009 -0.004" rpy="0 0 0" />
+    <parent link="claw_base"/>
+    <child link="claw_l"/>
+    <axis xyz="0 0 1" />
+    <limit effort="0" lower="0" upper="0.65" velocity="1.0" />
+  </joint>
+
+  <joint name="finger_right_joint" type="revolute">
+    <origin xyz="0.0085 -0.009 -0.004" rpy="0 0 0" />
+    <parent link="claw_base"/>
+    <child link="claw_r"/>
+    <axis xyz="0 0 -1" />
+    <limit effort="0" lower="0" upper="0.65" velocity="1.0" />
+    <mimic joint="finger_left_joint" multiplier="1.0" offset="0" />
+  </joint>
+
+  <link name="claw_l">
+    <visual>
+      <origin xyz="0 0 0" rpy="-1.570796325 0 0" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/017_clawfingersx.stl" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="-1.570796325 0 0" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/017_clawfingersx.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="claw_r">
+    <visual>
+      <origin xyz="0 0 0.0033" rpy="1.570796325 0 0" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/015_clawfingerdx.stl" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0033" rpy="1.570796325 0 0" />
+      <geometry>
+        <mesh filename="package://eezybotarm_description/meshes/015_clawfingerdx.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- End-Effector frame for MoveIt -->
+  <joint name="ee_joint" type="fixed">
+    <origin xyz="0.06 0 0" rpy="0 0 0" />
+    <parent link="claw_base" />
+    <child link="ee_link" />
+  </joint>
+
+  <link name="ee_link"/>
+
+</robot>

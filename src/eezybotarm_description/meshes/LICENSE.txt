@@ -1,0 +1,16 @@
+Creative Commons Attribution - Non-Commercial 3.0 Unported (CC BY-NC 3.0)
+
+The 3D model STL files in this directory are from the EEZYbotARM Mk2 project created by Carlo Franciscone (daGHIZmo).
+
+Project links:
+- Instructables: https://www.instructables.com/EEZYbotARM-Mk2-3D-Printed-Robot/
+- Thingiverse: https://www.thingiverse.com/thing:1454048
+- Onshape CAD: https://cad.onshape.com/documents/eb6eac15e3f68718c52d3cac/w/2b8e59d1698d09b06440ab07/e/c11caf264884cee4298c28f7
+
+Under the Creative Commons Attribution - Non-Commercial 3.0 Unported license:
+- You are free to share, copy, distribute, transmit, and adapt the work.
+- Attribution: You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+- Non-Commercial: You may not use the material for commercial purposes.
+
+Full license deed: https://creativecommons.org/licenses/by-nc/3.0/
+Full legal code: https://creativecommons.org/licenses/by-nc/3.0/legalcode

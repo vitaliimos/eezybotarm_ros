@@ -1,0 +1,46 @@
+# Colcon & ROS build artifacts
+build/
+install/
+log/
+test_results/
+**/install/
+**/.cache/
+
+# Clang / LSP compilation databases & cache
+compile_commands.json
+.clangd/
+.cache/
+
+# Python cache & build files
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# ROS logs & bag recordings
+*.log
+*.db3
+*.mcap
+
+# IDEs & Editor configs
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+.zed/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+*~
+
+# External source repositories in src/
+# Only the custom eezybotarm_* packages are version-controlled in this repository
+src/*/
+!src/eezybotarm_control/
+!src/eezybotarm_description/
+!src/eezybotarm_hardware/
+!src/eezybotarm_interfaces/
+!src/eezybotarm_moveit_config/

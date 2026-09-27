@@ -1,0 +1,41 @@
+{
+    "name": "ROS 2 Jazzy Eezybotarm Dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "runArgs": [
+        "-v", "/dev:/dev",
+        "--privileged",
+        "--network=host"
+    ],
+    "mounts": [
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
+    ],
+    "containerEnv": {
+        "DISPLAY": "${localEnv:DISPLAY}",
+        "QT_X11_NO_MITSHM": "1"
+    },
+    "postCreateCommand": "(test -f /etc/ros/rosdep/sources.list.d/20-default.list || sudo rosdep init) && rosdep update && rosdep install --from-paths src --ignore-src -r -y",
+    "remoteUser": "ubuntu",
+    "workspaceFolder": "/workspaces",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces,type=bind",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.autoComplete.extraPaths": [
+                    "/opt/ros/jazzy/lib/python3.12/site-packages"
+                ],
+                "python.analysis.extraPaths": [
+                    "/opt/ros/jazzy/lib/python3.12/site-packages"
+                ],
+                "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            },
+            "extensions": [
+                "Ranch-Hand-Robotics.rde-pack",
+                "ms-python.python",
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools"
+            ]
+        }
+    }
+}

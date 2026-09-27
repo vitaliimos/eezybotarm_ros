@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: eezybotarm_description
+    relative_path: urdf/robot.urdf
+  srdf:
+    relative_path: config/eezybotarm.srdf
+  package_settings:
+    author_name: Vitalii Mostipaka
+    author_email: mostipaka.vitalii@gmail.com
+    generated_timestamp: 1786052536
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity

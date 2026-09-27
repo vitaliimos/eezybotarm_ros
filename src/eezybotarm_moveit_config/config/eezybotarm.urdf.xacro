@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="eezybotarm">
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+    <xacro:arg name="use_mock_hardware" default="true" />
+    <xacro:arg name="i2c_bus" default="/dev/i2c-7" />
+    <xacro:arg name="i2c_address" default="0x60" />
+    <xacro:arg name="pwm_frequency" default="50" />
+
+    <!-- Import eezybotarm urdf file -->
+    <xacro:include filename="$(find eezybotarm_description)/urdf/robot.urdf" />
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="eezybotarm.ros2_control.xacro" />
+
+    <xacro:eezybotarm_ros2_control
+        name="EezyBotArmSystem"
+        initial_positions_file="$(arg initial_positions_file)"
+        use_mock_hardware="$(arg use_mock_hardware)"
+        i2c_bus="$(arg i2c_bus)"
+        i2c_address="$(arg i2c_address)"
+        pwm_frequency="$(arg pwm_frequency)" />
+
+</robot>

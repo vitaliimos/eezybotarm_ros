@@ -1,0 +1,7 @@
+# Default initial positions for eezybotarm's ros2_control fake system
+
+initial_positions:
+  elbow_joint: 0
+  finger_left_joint: 0
+  shoulder_joint: 0
+  waist_joint: 0
