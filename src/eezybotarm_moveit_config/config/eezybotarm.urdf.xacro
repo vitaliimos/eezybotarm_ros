@@ -5,9 +5,16 @@
     <xacro:arg name="i2c_bus" default="/dev/i2c-7" />
     <xacro:arg name="i2c_address" default="0x60" />
     <xacro:arg name="pwm_frequency" default="50" />
+    <xacro:arg name="include_environment" default="true" />
 
     <!-- Import eezybotarm urdf file -->
     <xacro:include filename="$(find eezybotarm_description)/urdf/robot.urdf" />
+
+    <!-- Import workspace environment xacro -->
+    <xacro:include filename="$(find eezybotarm_description)/urdf/environment.xacro" />
+    <xacro:if value="$(arg include_environment)">
+        <xacro:environment parent="base_link" />
+    </xacro:if>
 
     <!-- Import control_xacro -->
     <xacro:include filename="eezybotarm.ros2_control.xacro" />

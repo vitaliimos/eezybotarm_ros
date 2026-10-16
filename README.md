@@ -158,6 +158,54 @@ Select **"Edit Existing MoveIt Configuration Package"** and point to `src/eezybo
 
 ---
 
+## Computer Vision & TensorRT Acceleration
+
+The vision package `eezybotarm_vision` detects white and green cubes and estimates their 2D orientation angles using YOLO accelerated with **NVIDIA TensorRT**.
+
+### 1. Generating the TensorRT Engine on PC
+
+Because TensorRT `.engine` plans are architecture-specific, the engine must be compiled on the machine with the target GPU from the shared ONNX file (`src/eezybotarm_vision/models/model.onnx`).
+
+#### Method A: Using the Python Helper Script
+```bash
+python3 scripts/build_trt_engine.py \
+    --onnx src/eezybotarm_vision/models/model.onnx \
+    --output src/eezybotarm_vision/models/model.engine \
+    --fp16
+```
+
+#### Method B: Using `trtexec` CLI
+```bash
+trtexec --onnx=src/eezybotarm_vision/models/model.onnx \
+        --saveEngine=src/eezybotarm_vision/models/model.engine \
+        --minShapes=images:1x3x640x640 \
+        --optShapes=images:1x3x640x640 \
+        --maxShapes=images:1x3x640x640 \
+        --fp16
+```
+
+### 2. Testing Inference on PC
+
+Verify model detection, bounding boxes, and orientation angle on sample images:
+
+```bash
+# Test inference and save annotated image to /tmp/yolo_test_result.jpg
+./docker-run.sh python3 scripts/test_yolo_inference.py --weights src/eezybotarm_vision/models/model.engine
+```
+
+Run the complete ROS 2 vision launch pipeline with mock camera:
+```bash
+./docker-run.sh ros2 launch eezybotarm_vision vision.launch.py \
+    weights_path:=/workspaces/src/eezybotarm_vision/models/model.engine \
+    use_mock_camera:=true gui:=false
+```
+
+### 3. Deployment on Target Hardware (NVIDIA Jetson)
+
+When deployed via Yocto (`eeazybot_yocto`), the `yolo-model` recipe installs the pre-compiled Jetson TensorRT engine (`model.engine`, tracked via Git LFS in `eeazybot_yocto`) directly into `/usr/share/models/model.engine`. To compile or update `model.engine` from a trained `.pt` file using a Jetson running `eezybot-image-dev` over SSH, run `scripts/prepare_yolo_model.py` in `eeazybot_yocto`.
+
+---
+
 ## License & Attribution
 
 - **Source Code**: Licensed under the [MIT License](LICENSE).
@@ -165,3 +213,4 @@ Select **"Edit Existing MoveIt Configuration Package"** and point to `src/eezybo
   - [Instructables Project](https://www.instructables.com/EEZYbotARM-Mk2-3D-Printed-Robot/)
   - [Thingiverse (thing:1454048)](https://www.thingiverse.com/thing:1454048)
   - [Onshape CAD Model](https://cad.onshape.com/documents/eb6eac15e3f68718c52d3cac/w/2b8e59d1698d09b06440ab07/e/c11caf264884cee4298c28f7)
+

@@ -1,0 +1,31 @@
+camera:
+  ros__parameters:
+    video_device: "/dev/video0"
+    image_width: 1280
+    image_height: 800
+    framerate: 10.0
+    pixel_format: "yuyv"
+    camera_name: "camera"
+    camera_frame_id: "camera_optical_frame"
+    brightness: 135
+    auto_exposure: 1
+    exposure_time_absolute: 350
+
+mock_camera:
+  ros__parameters:
+    publish_rate: 15.0
+    frame_id: "camera_optical_frame"
+
+sorting_coordinator_node:
+  ros__parameters:
+    # Path to TensorRT engine (.engine). Default target location on Jetson.
+    weights_path: "/usr/share/models/model.engine"
+    conf_threshold: 0.5
+    stable_frames_required: 8
+    cooldown_duration_sec: 2.5
+    action_name: "pick_and_place"
+    paper_width_mm: 300.0
+    paper_height_mm: 200.0
+    robot_x_offset_m: 0.150
+    robot_y_offset_m: 0.0
+    table_z_m: 0.075

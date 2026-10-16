@@ -1,0 +1,2 @@
+src/eezybotarm_vision/models/*.pt filter=lfs diff=lfs merge=lfs -text
+src/eezybotarm_vision/models/*.onnx filter=lfs diff=lfs merge=lfs -text

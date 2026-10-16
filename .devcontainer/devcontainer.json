@@ -4,6 +4,7 @@
         "dockerfile": "Dockerfile"
     },
     "runArgs": [
+        "--gpus", "all",
         "-v", "/dev:/dev",
         "--privileged",
         "--network=host"

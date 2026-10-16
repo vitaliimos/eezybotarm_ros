@@ -16,12 +16,14 @@
   <link
     name="base_link">
     <visual>
+      <origin xyz="0 0 0" rpy="0 0 3.14159265"/>
       <geometry>
         <mesh filename="package://eezybotarm_description/meshes/012_base.stl" />
       </geometry>
       <material name="red"/>
     </visual>
     <collision>
+      <origin xyz="0 0 0" rpy="0 0 3.14159265"/>
       <geometry>
         <mesh filename="package://eezybotarm_description/meshes/012_base.stl" />
       </geometry>
@@ -101,7 +103,7 @@
     <parent link="virtual_parallelogram_link" />
     <child link="forearm_link" />
     <axis xyz="0 1 0" />
-    <limit effort="0" velocity="0" lower="0" upper="0.55"/>
+    <limit effort="0" velocity="0" lower="-0.2" upper="0.85"/>
   </joint>
 
 <!-- ELBOW -->

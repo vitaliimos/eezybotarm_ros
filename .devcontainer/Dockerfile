@@ -47,6 +47,8 @@ RUN apt-get update \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed "setuptools<70" "numpy<2" onnxruntime tensorrt nvidia-cuda-runtime-cu12
+
 RUN mkdir -p /workspaces \
     && chown -R ${USERNAME}:${USERNAME} /workspaces
 

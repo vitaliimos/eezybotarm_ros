@@ -35,6 +35,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *~
+.Trash-*/
+
+# TensorRT engine plans (machine-specific)
+*.engine
 
 # External source repositories in src/
 # Only the custom eezybotarm_* packages are version-controlled in this repository
@@ -44,3 +48,4 @@ src/*/
 !src/eezybotarm_hardware/
 !src/eezybotarm_interfaces/
 !src/eezybotarm_moveit_config/
+!src/eezybotarm_vision/

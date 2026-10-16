@@ -1,7 +1,8 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -16,6 +17,11 @@ def generate_launch_description():
     i2c_address = LaunchConfiguration('i2c_address')
     pwm_frequency = LaunchConfiguration('pwm_frequency')
     use_rviz = LaunchConfiguration('use_rviz')
+    use_vision = LaunchConfiguration('use_vision')
+    use_mock_camera = LaunchConfiguration('use_mock_camera')
+    start_camera = LaunchConfiguration('start_camera')
+    weights_path = LaunchConfiguration('weights_path')
+    include_environment = LaunchConfiguration('include_environment')
 
     moveit_config = (
         MoveItConfigsBuilder('eezybotarm', package_name='eezybotarm_moveit_config')
@@ -26,6 +32,7 @@ def generate_launch_description():
                 'i2c_bus': i2c_bus,
                 'i2c_address': i2c_address,
                 'pwm_frequency': pwm_frequency,
+                'include_environment': include_environment,
             },
         )
         .robot_description_semantic(file_path='config/eezybotarm.srdf')
@@ -108,7 +115,6 @@ def generate_launch_description():
     pick_and_place_server = Node(
         package='eezybotarm_control',
         executable='pick_and_place_server',
-        name='pick_and_place_action_server',
         parameters=[moveit_py_params],
         output='screen',
     )
@@ -124,6 +130,25 @@ def generate_launch_description():
             target_action=arm_controller,
             on_exit=[hand_controller],
         )
+    )
+
+    default_weights_path = '/usr/share/models/model.engine'
+    vision_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('eezybotarm_vision'),
+                'launch',
+                'vision.launch.py',
+            ])
+        ),
+        launch_arguments={
+            'use_mock_camera': use_mock_camera,
+            'start_camera': start_camera,
+            'weights_path': weights_path,
+            'use_rviz': 'false',
+            'gui': 'false',
+        }.items(),
+        condition=IfCondition(use_vision),
     )
 
     return LaunchDescription([
@@ -152,6 +177,31 @@ def generate_launch_description():
             default_value='false',
             description='Launch RViz for visualization and debugging',
         ),
+        DeclareLaunchArgument(
+            'use_vision',
+            default_value='true',
+            description='Launch vision and sorting coordinator nodes',
+        ),
+        DeclareLaunchArgument(
+            'use_mock_camera',
+            default_value='false',
+            description='Use image_publisher mock camera instead of physical USB camera',
+        ),
+        DeclareLaunchArgument(
+            'start_camera',
+            default_value='true',
+            description='Whether to start camera streaming node in vision',
+        ),
+        DeclareLaunchArgument(
+            'weights_path',
+            default_value=default_weights_path,
+            description='Path to YOLO weights file',
+        ),
+        DeclareLaunchArgument(
+            'include_environment',
+            default_value='true',
+            description='Whether to include the physical workspace environment in robot_description',
+        ),
         static_world_tf,
         robot_state_publisher,
         ros2_control,
@@ -161,4 +211,5 @@ def generate_launch_description():
         move_group,
         rviz,
         pick_and_place_server,
+        vision_launch,
     ])

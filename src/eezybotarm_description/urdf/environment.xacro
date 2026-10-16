@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="environment" params="parent:=base_link">
+    <!-- Base Mounting Board (500 x 300 x 18 mm) -->
+    <!-- Base link is 40mm from the rear edge along +X. Center is at X = -0.040 + 0.250 = +0.210 m -->
+    <link name="base_board">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.500 0.300 0.018"/>
+        </geometry>
+        <material name="wood_pine">
+          <color rgba="0.86 0.74 0.54 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.500 0.300 0.018"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${parent}_to_base_board" type="fixed">
+      <parent link="${parent}"/>
+      <child link="base_board"/>
+      <origin xyz="0.210 0.0 -0.009" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Elevated Sorting Work Table (200 x 300 x 75 mm) -->
+    <!-- Front edge of board is at X = +0.460 m. Table is 110mm from front edge, depth is 200mm. -->
+    <!-- Table spans X in [+0.150, +0.350], center is at X = +0.250 m, Z top at +0.075 m (center at Z = 0.0375 m) -->
+    <link name="work_table">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.200 0.300 0.075"/>
+        </geometry>
+        <material name="table_surface">
+          <color rgba="0.94 0.94 0.96 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.200 0.300 0.075"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${parent}_to_work_table" type="fixed">
+      <parent link="${parent}"/>
+      <child link="work_table"/>
+      <origin xyz="0.250 0.0 0.0375" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Camera Stand (height 300 mm, base width ~120 mm) -->
+    <!-- Located at X = +0.400 m, Y = 0.0, Z center at +0.150 m -->
+    <link name="camera_stand">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.060" length="0.300"/>
+        </geometry>
+        <material name="stand_green">
+          <color rgba="0.15 0.30 0.15 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.060" length="0.300"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${parent}_to_camera_stand" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_stand"/>
+      <origin xyz="0.400 0.0 0.150" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Camera Body Link mounted on top of the stand (Z = +0.150 relative to stand center, i.e., Z = +0.300 m) -->
+    <!-- Oriented towards -X (yaw = pi), pitched down ~56 degrees (0.9828 rad) towards the center of work table -->
+    <link name="camera_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.020" length="0.060"/>
+        </geometry>
+        <material name="camera_body">
+          <color rgba="0.2 0.2 0.2 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.025" length="0.070"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="camera_stand_to_camera_link" type="fixed">
+      <parent link="camera_stand"/>
+      <child link="camera_link"/>
+      <origin xyz="0.0 0.0 0.150" rpy="0.0 0.9828 3.14159"/>
+    </joint>
+
+    <!-- Camera Optical Frame (ROS Standard: Z forward, X right, Y down) -->
+    <link name="camera_optical_frame"/>
+
+    <joint name="camera_link_to_optical" type="fixed">
+      <parent link="camera_link"/>
+      <child link="camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
+    </joint>
+  </xacro:macro>
+</robot>

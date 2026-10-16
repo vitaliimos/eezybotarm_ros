@@ -13,6 +13,12 @@ def generate_launch_description():
     i2c_bus = LaunchConfiguration('i2c_bus')
     i2c_address = LaunchConfiguration('i2c_address')
     pwm_frequency = LaunchConfiguration('pwm_frequency')
+    use_vision = LaunchConfiguration('use_vision')
+    use_mock_camera = LaunchConfiguration('use_mock_camera')
+    start_camera = LaunchConfiguration('start_camera')
+    weights_path = LaunchConfiguration('weights_path')
+
+    default_weights_path = '/usr/share/models/model.engine'
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -35,6 +41,26 @@ def generate_launch_description():
             default_value='50',
             description='PWM frequency for servos in Hz',
         ),
+        DeclareLaunchArgument(
+            'use_vision',
+            default_value='true',
+            description='Launch vision and sorting coordinator nodes',
+        ),
+        DeclareLaunchArgument(
+            'use_mock_camera',
+            default_value='false',
+            description='Use mock camera instead of real USB camera',
+        ),
+        DeclareLaunchArgument(
+            'start_camera',
+            default_value='true',
+            description='Whether to start camera streaming node in vision',
+        ),
+        DeclareLaunchArgument(
+            'weights_path',
+            default_value=default_weights_path,
+            description='Path to YOLO weights file',
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(bringup),
             launch_arguments={
@@ -43,6 +69,10 @@ def generate_launch_description():
                 'i2c_address': i2c_address,
                 'pwm_frequency': pwm_frequency,
                 'use_rviz': 'false',
+                'use_vision': use_vision,
+                'use_mock_camera': use_mock_camera,
+                'start_camera': start_camera,
+                'weights_path': weights_path,
             }.items(),
         ),
     ])

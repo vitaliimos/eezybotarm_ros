@@ -2,14 +2,14 @@ import time
 
 from eezybotarm_interfaces.action import PickObject
 from geometry_msgs.msg import Pose, PoseStamped
+import moveit.core.planning_interface  # noqa: F401
+from moveit.planning import MoveItPy, PlanningComponent, PlanRequestParameters
 from moveit_msgs.msg import Constraints, MoveItErrorCodes, PositionConstraint
-from shape_msgs.msg import SolidPrimitive
-from moveit.core.planning_interface import MotionPlanResponse  # triggers cross-module type registration
-from moveit.planning import MoveItPy, PlanRequestParameters, PlanningComponent
 import rclpy
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from shape_msgs.msg import SolidPrimitive
 
 
 class PickAndPlaceActionServer(Node):
@@ -20,7 +20,7 @@ class PickAndPlaceActionServer(Node):
             automatically_declare_parameters_from_overrides=True,
         )
 
-        self.moveit = MoveItPy(node_name='pick_and_place_action_server')
+        self.moveit = MoveItPy(node_name='pick_and_place_moveit')
         self.arm = self.moveit.get_planning_component('arm')
         self.gripper = self.moveit.get_planning_component('hand')
 
@@ -143,9 +143,8 @@ class PickAndPlaceActionServer(Node):
 
         response = component.plan(self._plan_params, planning_scene=None)
         if response is None or response.error_code.val != MoveItErrorCodes.SUCCESS:
-            self.get_logger().error(
-                f'Planning failed with error code {response.error_code.val if response else "None"}'
-            )
+            err_val = response.error_code.val if response else 'None'
+            self.get_logger().error(f'Planning failed with error code {err_val}')
             return False
 
         success = self.moveit.execute(response.trajectory, controllers=[])
