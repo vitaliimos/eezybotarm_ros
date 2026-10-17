@@ -59,7 +59,7 @@ class TrtRunner:
     def _load_cudart(self):
         import glob
 
-        for lib in ['libcudart.so', 'libcudart.so.12', 'libcudart.so.11.0']:
+        for lib in ['libcudart.so', 'libcudart.so.13', 'libcudart.so.12']:
             try:
                 return ctypes.CDLL(lib)
             except OSError:
