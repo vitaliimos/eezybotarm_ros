@@ -56,6 +56,7 @@ class PickAndPlaceActionServer(Node):
 
         started_at = time.monotonic()
         target_pose = goal_handle.request.target_pose
+        place_pose = goal_handle.request.place_pose
         feedback_msg = PickObject.Feedback()
         result = PickObject.Result()
 
@@ -92,6 +93,21 @@ class PickAndPlaceActionServer(Node):
         goal_handle.publish_feedback(feedback_msg)
         if not self._plan_and_execute(self.arm, configuration_name='home'):
             return fail('Failed to move arm to post-grasp pose')
+
+        feedback_msg.current_phase = 'MOVING_TO_PLACE_POSITION'
+        feedback_msg.progress_percentage = 80.0
+        goal_handle.publish_feedback(feedback_msg)
+        if not self._plan_and_execute(
+            self.arm,
+            constraints=self._position_only_constraints(place_pose, 'ee_link'),
+        ):
+            return fail('Failed to move arm to place pose')
+
+        feedback_msg.current_phase = 'OPENING_GRIPPER'
+        feedback_msg.progress_percentage = 0.0
+        goal_handle.publish_feedback(feedback_msg)
+        if not self._plan_and_execute(self.gripper, configuration_name='open'):
+            return fail('Failed to open gripper')
 
         feedback_msg.current_phase = 'COMPLETE'
         feedback_msg.progress_percentage = 100.0

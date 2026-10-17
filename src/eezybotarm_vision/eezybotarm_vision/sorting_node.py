@@ -144,7 +144,7 @@ class SortingCoordinatorNode(Node):
                 self.get_logger().info('Cooldown finished, resumed scanning.')
 
         detections_with_zones: list[tuple[CubeDetection, str, float, float]] = []
-        middle_candidate = None
+        middle_detections: list[tuple[CubeDetection, str, float, float]] = []
 
         if self.state in (SortingState.SCANNING, SortingState.CONFIRMING):
             raw_detections = self.detector.predict(frame)
@@ -169,8 +169,22 @@ class SortingCoordinatorNode(Node):
                 item = (det, zone, x_mm, y_mm)
                 detections_with_zones.append(item)
 
-                if zone == 'middle' and middle_candidate is None:
-                    middle_candidate = item
+                if zone == 'middle':
+                    middle_detections.append(item)
+
+            middle_candidate = None
+            if self.candidate_cube is not None:
+                for item in middle_detections:
+                    det = item[0]
+                    if (
+                        det.class_id == self.candidate_cube.class_id
+                        and abs(self.candidate_cube.center_px[0] - det.center_px[0]) < 25.0
+                        and abs(self.candidate_cube.center_px[1] - det.center_px[1]) < 25.0
+                    ):
+                        middle_candidate = item
+                        break
+            if middle_candidate is None and middle_detections:
+                middle_candidate = middle_detections[0]
 
             if middle_candidate is not None and self.active_calibration is not None:
                 det, _, x_mm, y_mm = middle_candidate
@@ -180,6 +194,7 @@ class SortingCoordinatorNode(Node):
                     and abs(self.candidate_cube.center_px[0] - det.center_px[0]) < 25.0
                     and abs(self.candidate_cube.center_px[1] - det.center_px[1]) < 25.0
                 ):
+                    self.candidate_cube = det
                     self.candidate_frames_count += 1
                 else:
                     self.candidate_cube = det
@@ -289,6 +304,8 @@ class SortingCoordinatorNode(Node):
     ) -> None:
         if not self.action_client.server_is_ready():
             self.get_logger().warn('Pick-and-place action server not ready!')
+            self.candidate_cube = None
+            self.candidate_frames_count = 0
             self.state = SortingState.SCANNING
             return
 
@@ -324,6 +341,8 @@ class SortingCoordinatorNode(Node):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().warn('Goal was rejected by pick-and-place server!')
+            self.candidate_cube = None
+            self.candidate_frames_count = 0
             self.state = SortingState.SCANNING
             return
 

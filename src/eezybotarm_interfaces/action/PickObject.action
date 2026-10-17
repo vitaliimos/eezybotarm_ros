@@ -1,5 +1,6 @@
 # 1. GOAL (Request from CV-node to server)
 geometry_msgs/PoseStamped target_pose
+geometry_msgs/PoseStamped place_pose
 string object_class
 float32 approach_distance              # approach distance before grasping
 ---
