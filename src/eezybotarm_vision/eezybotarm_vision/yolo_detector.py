@@ -179,6 +179,48 @@ class YoloCubeDetector:
     def is_loaded(self) -> bool:
         return self._runner is not None
 
+    @staticmethod
+    def _letterbox(
+        image: np.ndarray,
+        new_shape: tuple[int, int] = (640, 640),
+        color: tuple[int, int, int] = (114, 114, 114),
+    ) -> tuple[np.ndarray, float, float, float]:
+        """Resize and pad image while preserving aspect ratio (Ultralytics LetterBox)."""
+        orig_h, orig_w = image.shape[:2]
+        target_h, target_w = new_shape
+        scale = min(target_h / orig_h, target_w / orig_w)
+
+        new_unpad_w = round(orig_w * scale)
+        new_unpad_h = round(orig_h * scale)
+
+        dw = (target_w - new_unpad_w) / 2.0
+        dh = (target_h - new_unpad_h) / 2.0
+
+        top = round(dh - 0.1)
+        bottom = round(dh + 0.1)
+        left = round(dw - 0.1)
+        right = round(dw + 0.1)
+
+        if (orig_w, orig_h) != (new_unpad_w, new_unpad_h):
+            resized = cv2.resize(
+                image, (new_unpad_w, new_unpad_h), interpolation=cv2.INTER_LINEAR
+            )
+        else:
+            resized = image
+
+        padded = cv2.copyMakeBorder(
+            resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
+        )
+        return padded, scale, float(left), float(top)
+
+    @classmethod
+    def _normalize_input(cls, image: np.ndarray) -> tuple[np.ndarray, float, float, float]:
+        padded, scale, pad_x, pad_y = cls._letterbox(image, (640, 640))
+        blob = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
+        blob = blob.transpose(2, 0, 1).astype(np.float32) / 255.0
+        blob = np.ascontiguousarray(np.expand_dims(blob, axis=0))
+        return blob, scale, pad_x, pad_y
+
     def predict(self, image: np.ndarray) -> list[CubeDetection]:
         """Detect cubes in image and return list of CubeDetection."""
         if not self.is_loaded():
@@ -188,17 +230,17 @@ class YoloCubeDetector:
             return []
 
         orig_h, orig_w = image.shape[:2]
-        blob = cv2.resize(image, (640, 640))
-        blob = cv2.cvtColor(blob, cv2.COLOR_BGR2RGB)
-        blob = blob.transpose(2, 0, 1).astype(np.float32) / 255.0
-        blob = np.ascontiguousarray(np.expand_dims(blob, axis=0))
+        blob, scale, pad_x, pad_y = self._normalize_input(image)
 
         out = self._runner.infer(blob)
-        return self._postprocess(out, orig_w, orig_h)
+        return self._postprocess(out, scale, pad_x, pad_y, orig_w, orig_h)
 
     def _postprocess(
         self,
         out: np.ndarray,
+        scale: float,
+        pad_x: float,
+        pad_y: float,
         orig_w: int,
         orig_h: int,
     ) -> list[CubeDetection]:
@@ -206,8 +248,6 @@ class YoloCubeDetector:
             return []
 
         preds = out[0]
-        scale_x = orig_w / 640.0
-        scale_y = orig_h / 640.0
 
         detections: list[CubeDetection] = []
         for row in preds:
@@ -218,10 +258,10 @@ class YoloCubeDetector:
             if conf < self.conf_threshold:
                 continue
 
-            cx = float(row[0] * scale_x)
-            cy = float(row[1] * scale_y)
-            w = float(row[2] * scale_x)
-            h = float(row[3] * scale_y)
+            cx = float(np.clip((row[0] - pad_x) / scale, 0.0, float(orig_w)))
+            cy = float(np.clip((row[1] - pad_y) / scale, 0.0, float(orig_h)))
+            w = float(row[2] / scale)
+            h = float(row[3] / scale)
             cls_id = int(row[5])
             angle = float(row[6]) if len(row) >= 7 else 0.0
 
@@ -236,4 +276,5 @@ class YoloCubeDetector:
                 )
             )
 
+        detections.sort(key=lambda d: d.confidence, reverse=True)
         return detections
