@@ -15,7 +15,7 @@
   <depend>python3-opencv</depend>
   <depend>eezybotarm_interfaces</depend>
 
-  <exec_depend>usb_cam</exec_depend>
+  <exec_depend>v4l2_camera</exec_depend>
   <exec_depend>image_publisher</exec_depend>
   <exec_depend>rqt_image_view</exec_depend>
 

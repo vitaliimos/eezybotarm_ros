@@ -34,8 +34,7 @@ trtexec --onnx=src/eezybotarm_vision/models/model.onnx \
 
 ### On Jetson (Target Embedded Device)
 The Yocto image automatically handles this on first boot:
-* `recipes-model/yolo-model` places `model.onnx` into `/usr/share/models/model.onnx`.
-* The oneshot systemd service `yolo-compile-engine.service` runs `trtexec` on the Jetson Orin Nano hardware to produce `/usr/share/models/model.engine`.
+* `recipes-model/cube-detection-model` places `model.engine` into `/usr/share/models/model.engine`.
 * `sorting_node` auto-discovers `/usr/share/models/model.engine` on startup.
 
 ---

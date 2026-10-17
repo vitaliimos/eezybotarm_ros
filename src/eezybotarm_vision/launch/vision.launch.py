@@ -34,10 +34,10 @@ def generate_launch_description():
         ])
     )
 
-    # 1. Real USB Camera node (usb_cam)
+    # 1. Real USB Camera node (v4l2_camera)
     real_camera_node = Node(
-        package='usb_cam',
-        executable='usb_cam_node_exe',
+        package='v4l2_camera',
+        executable='v4l2_camera_node',
         name='camera',
         parameters=[config_file],
         remappings=[
@@ -116,7 +116,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'use_mock_camera',
             default_value='false',
-            description='Whether to use image_publisher mock camera instead of physical usb_cam',
+            description='Whether to use image_publisher mock camera instead of physical v4l2_camera',
         ),
         DeclareLaunchArgument(
             'mock_image_path',

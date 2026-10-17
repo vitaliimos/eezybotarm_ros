@@ -202,7 +202,7 @@ Run the complete ROS 2 vision launch pipeline with mock camera:
 
 ### 3. Deployment on Target Hardware (NVIDIA Jetson)
 
-When deployed via Yocto (`eeazybot_yocto`), the `yolo-model` recipe installs the pre-compiled Jetson TensorRT engine (`model.engine`, tracked via Git LFS in `eeazybot_yocto`) directly into `/usr/share/models/model.engine`. To compile or update `model.engine` from a trained `.pt` file using a Jetson running `eezybot-image-dev` over SSH, run `scripts/prepare_yolo_model.py` in `eeazybot_yocto`.
+When deployed via Yocto (`eeazybot_yocto`), the `cube-detection-model` recipe installs the pre-compiled Jetson TensorRT engine (`model.engine`, tracked via Git LFS in `eeazybot_yocto`) directly into `/usr/share/models/model.engine`. To compile or update `model.engine` from a trained `.pt` file using a Jetson running `eezybot-image-dev` over SSH, run `scripts/prepare_yolo_model.py` in `eeazybot_yocto`.
 
 ---
 

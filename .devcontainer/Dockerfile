@@ -43,6 +43,7 @@ RUN apt-get update \
         ros-${ROS_DISTRO}-tf2-ros \
         ros-${ROS_DISTRO}-warehouse-ros \
         ros-${ROS_DISTRO}-xacro \
+        ros-${ROS_DISTRO}-v4l2-camera \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && rm -rf /var/lib/apt/lists/*
