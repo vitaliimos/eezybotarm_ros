@@ -4,6 +4,7 @@ camera:
     image_size: [1280, 800]
     time_per_frame: [1, 10]
     pixel_format: "YUYV"
+    output_encoding: "yuv422_yuy2"
     camera_name: "camera"
     camera_frame_id: "camera_optical_frame"
     brightness: 135
