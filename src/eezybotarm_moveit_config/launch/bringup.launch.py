@@ -110,6 +110,8 @@ def generate_launch_description():
             'planner_id': 'RRTConnectkConfigDefault',
             'planning_attempts': 5,
             'planning_time': 1.0,
+            'max_velocity_scaling_factor': 0.75,
+            'max_acceleration_scaling_factor': 0.75,
         },
     })
     pick_and_place_server = Node(
