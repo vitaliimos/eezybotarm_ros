@@ -8,8 +8,6 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from moveit_configs_utils import MoveItConfigsBuilder
 
-import copy
-
 
 def generate_launch_description():
     use_mock_hardware = LaunchConfiguration('use_mock_hardware')
@@ -37,6 +35,8 @@ def generate_launch_description():
         )
         .robot_description_semantic(file_path='config/eezybotarm.srdf')
         .trajectory_execution(file_path='config/moveit_controllers.yaml')
+        .planning_pipelines(pipelines=['ompl'], default_planning_pipeline='ompl')
+        .moveit_cpp(file_path='config/moveit_cpp.yaml')
         .to_moveit_configs()
     )
 
@@ -102,18 +102,10 @@ def generate_launch_description():
         condition=IfCondition(use_rviz),
         output='screen',
     )
-    moveit_py_params = copy.deepcopy(moveit_config.to_dict())
-    moveit_py_params.update({
-        'planning_pipelines': {'pipeline_names': ['ompl']},
-        'plan_request_params': {
-            'planning_pipeline': 'ompl',
-            'planner_id': 'RRTConnectkConfigDefault',
-            'planning_attempts': 5,
-            'planning_time': 1.0,
-            'max_velocity_scaling_factor': 0.75,
-            'max_acceleration_scaling_factor': 0.75,
-        },
-    })
+    # MoveItCpp (used by moveit_py) reads `planning_pipelines.pipeline_names`, while the
+    # builder emits `planning_pipelines` as a plain list (the format move_group expects).
+    moveit_py_params = dict(moveit_config.to_dict())
+    moveit_py_params['planning_pipelines'] = {'pipeline_names': ['ompl']}
     pick_and_place_server = Node(
         package='eezybotarm_control',
         executable='pick_and_place_server',
