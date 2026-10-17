@@ -129,6 +129,44 @@ def test_detect_zones_deduplicate_inner_outer_contours():
     assert (rx - mx) > 100
 
 
+def test_detect_zones_with_broken_line_gap():
+    """Verify zone detection recovers when glare causes a small gap in a zone border."""
+    img = np.ones((600, 800, 3), dtype=np.uint8) * 255
+    cv2.rectangle(img, (100, 150), (280, 450), (0, 0, 0), 4)
+    cv2.rectangle(img, (310, 150), (490, 450), (0, 0, 0), 4)
+    cv2.rectangle(img, (520, 150), (700, 450), (80, 80, 80), 3)
+    # Introduce a 7-pixel gap in the top border of the right zone (too wide for 6x6 closing)
+    cv2.line(img, (550, 148), (556, 152), (255, 255, 255), 5)
+
+    res = detect_zones(img, min_zone_area=5000.0)
+    assert res is not None
+    assert 'left' in res.zones
+    assert 'middle' in res.zones
+    assert 'right' in res.zones
+
+
+def test_letterbox_aspect_ratio_preservation():
+    """Verify LetterBox padding and inverse coordinate mapping on 16:9 image."""
+    orig_h, orig_w = 576, 1024
+    img = np.zeros((orig_h, orig_w, 3), dtype=np.uint8)
+    padded, scale, pad_x, pad_y = YoloCubeDetector._letterbox(img, (640, 640))
+
+    assert padded.shape == (640, 640, 3)
+    assert abs(scale - (640.0 / 1024.0)) < 1e-6
+    assert abs(pad_x - 0.0) < 1e-6
+    assert abs(pad_y - 140.0) < 1e-6
+
+    # Verify _postprocess maps padded 640x640 coordinates back to original 1024x576
+    det = object.__new__(YoloCubeDetector)
+    det.conf_threshold = 0.5
+    fake_out = np.array([[[320.0, 320.0, 64.0, 64.0, 0.98, 0.0, 0.1]]], dtype=np.float32)
+    results = det._postprocess(fake_out, scale, pad_x, pad_y, orig_w, orig_h)
+
+    assert len(results) == 1
+    assert abs(results[0].center_px[0] - 512.0) < 1e-3
+    assert abs(results[0].center_px[1] - 288.0) < 1e-3
+
+
 def test_detector_fail_fast_on_missing_model():
     """Verify detector raises RuntimeError when model path does not exist."""
     import pytest

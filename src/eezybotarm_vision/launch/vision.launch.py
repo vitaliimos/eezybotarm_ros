@@ -116,7 +116,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'use_mock_camera',
             default_value='false',
-            description='Whether to use image_publisher mock camera instead of physical v4l2_camera',
+            description='Whether to use image_publisher mock instead of physical camera',
         ),
         DeclareLaunchArgument(
             'mock_image_path',

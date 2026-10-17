@@ -1,6 +1,7 @@
 """Workspace zone detection and homography calibration for EezyBotArm."""
 
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Literal
 
 import cv2
@@ -50,44 +51,78 @@ def order_corners(pts: np.ndarray) -> np.ndarray:
     return np.array([tl, tr, br, bl], dtype=np.float32)
 
 
-def detect_zones(
-    img: np.ndarray,
-    field_width_mm: float = 300.0,
-    field_height_mm: float = 200.0,
-    min_zone_area: float = 10000.0,
-) -> ZoneDetectionResult | None:
-    """Detect the three workspace zones (left, middle, right) and compute homography."""
-    if img is None or img.size == 0:
+def _select_best_triplet(candidates: list[_Candidate]) -> list[_Candidate] | None:
+    """Select the most consistent left-middle-right triplet of zone candidates."""
+    if len(candidates) < 3:
         return None
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
-    blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
+    best_triplet: list[_Candidate] | None = None
+    best_score = float('inf')
 
+    for triplet in combinations(candidates, 3):
+        ordered = sorted(triplet, key=lambda c: c.cx)
+        areas = [c.area for c in ordered]
+        area_ratio = max(areas) / min(areas)
+        if area_ratio > 2.5:
+            continue
+
+        mean_dim = float(np.mean([np.sqrt(a) for a in areas]))
+        cys = [c.cy for c in ordered]
+        cy_spread = (max(cys) - min(cys)) / mean_dim
+        if cy_spread > 0.35:
+            continue
+
+        dx1 = ordered[1].cx - ordered[0].cx
+        dx2 = ordered[2].cx - ordered[1].cx
+        if min(dx1, dx2) < 0.4 * mean_dim:
+            continue
+
+        score = (area_ratio - 1.0) + (2.0 * cy_spread)
+        if score < best_score:
+            best_score = score
+            best_triplet = ordered
+
+    return best_triplet
+
+
+def _find_triplet_with_params(
+    blurred: np.ndarray,
+    img_area: float,
+    min_zone_area: float,
+    block_size: int,
+    c_val: int,
+    morph_size: int,
+) -> list[_Candidate] | None:
+    """Run thresholding and contour extraction for a single parameter configuration."""
     thresh = cv2.adaptiveThreshold(
         blurred,
         255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
-        blockSize=21,
-        C=10,
+        blockSize=block_size,
+        C=c_val,
     )
 
-    kernel = np.ones((6, 6), np.uint8)
+    kernel = np.ones((morph_size, morph_size), np.uint8)
     closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
     contours, _ = cv2.findContours(closed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    img_area = float(img.shape[0] * img.shape[1])
     candidates: list[_Candidate] = []
-
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if min_zone_area < area < (img_area * 0.35):
             peri = cv2.arcLength(cnt, True)
             approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-            if len(approx) == 4:
-                m = cv2.moments(cnt)
+            if len(approx) != 4:
+                hull = cv2.convexHull(cnt)
+                hull_peri = cv2.arcLength(hull, True)
+                approx = cv2.approxPolyDP(hull, 0.02 * hull_peri, True)
+
+            if len(approx) == 4 and cv2.isContourConvex(approx):
+                poly_area = cv2.contourArea(approx)
+                if not (min_zone_area < poly_area < (img_area * 0.35)):
+                    continue
+                m = cv2.moments(approx)
                 if m['m00'] != 0:
                     cx = int(m['m10'] / m['m00'])
                     cy = int(m['m01'] / m['m00'])
@@ -96,8 +131,8 @@ def detect_zones(
                             cx=cx,
                             cy=cy,
                             corners=order_corners(approx),
-                            cnt=cnt,
-                            area=area,
+                            cnt=approx,
+                            area=poly_area,
                         )
                     )
 
@@ -129,26 +164,47 @@ def detect_zones(
                 break
         if not is_duplicate:
             unique.append(c)
-    candidates = unique
 
-    if len(candidates) > 3:
-        candidates.sort(key=lambda c: c.area, reverse=True)
-        candidates = candidates[:3]
+    return _select_best_triplet(unique)
 
-    if len(candidates) != 3:
+
+def detect_zones(
+    img: np.ndarray,
+    field_width_mm: float = 300.0,
+    field_height_mm: float = 200.0,
+    min_zone_area: float = 5000.0,
+) -> ZoneDetectionResult | None:
+    """Detect the three workspace zones (left, middle, right) and compute homography."""
+    if img is None or img.size == 0:
         return None
 
-    # Verify area consistency
-    areas = [c.area for c in candidates]
-    if max(areas) / min(areas) > 2.5:
-        return None
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
 
-    # Sort left to right by centroid X coordinate
-    candidates.sort(key=lambda c: c.cx)
+    img_area = float(img.shape[0] * img.shape[1])
+    param_passes = [
+        (21, 10, 6),
+        (21, 7, 7),
+        (21, 7, 9),
+        (31, 8, 9),
+    ]
+
+    selected: list[_Candidate] | None = None
+    for block_size, c_val, morph_size in param_passes:
+        selected = _find_triplet_with_params(
+            blurred, img_area, min_zone_area, block_size, c_val, morph_size
+        )
+        if selected is not None:
+            break
+
+    if selected is None:
+        return None
 
     zone_names: list[ZoneName] = ['left', 'middle', 'right']
     zones: dict[ZoneName, Zone] = {}
-    for name, c in zip(zone_names, candidates):
+    for name, c in zip(zone_names, selected):
         zones[name] = Zone(
             name=name,
             center_px=(c.cx, c.cy),
