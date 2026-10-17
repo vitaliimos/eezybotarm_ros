@@ -40,23 +40,23 @@ if [ -d "/dev" ]; then
 fi
 
 # Shortcut commands
-CMD_TO_RUN=""
+CMD_ARGS=()
 case "${1:-}" in
     ""|shell)
         exec docker run "${DOCKER_ARGS[@]}" "$IMAGE_NAME" bash
         ;;
     build)
         shift
-        CMD_TO_RUN="colcon build --symlink-install --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON $*"
+        CMD_ARGS=(colcon build --symlink-install --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON "$@")
         ;;
     test)
         shift
-        CMD_TO_RUN="colcon test $*"
+        CMD_ARGS=(colcon test "$@")
         ;;
     *)
-        CMD_TO_RUN="$*"
+        CMD_ARGS=("$@")
         ;;
 esac
 
 exec docker run "${DOCKER_ARGS[@]}" "$IMAGE_NAME" bash -c \
-    "source /opt/ros/jazzy/setup.bash && if [ -f /workspaces/install/setup.bash ]; then source /workspaces/install/setup.bash; fi && $CMD_TO_RUN"
+    'source /opt/ros/jazzy/setup.bash && if [ -f /workspaces/install/setup.bash ]; then source /workspaces/install/setup.bash; fi && exec "$@"' _ "${CMD_ARGS[@]}"

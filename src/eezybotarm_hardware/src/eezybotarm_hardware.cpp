@@ -61,10 +61,11 @@ bool i2c_read_reg(int fd, std::uint8_t addr, std::uint8_t reg, std::uint8_t & va
 }  // namespace
 
 hardware_interface::CallbackReturn EezyBotArmHardware::on_init(
-    const hardware_interface::HardwareComponentInterfaceParams & params)
+  const hardware_interface::HardwareComponentInterfaceParams & params)
 {
   if (hardware_interface::SystemInterface::on_init(params) !=
-      hardware_interface::CallbackReturn::SUCCESS) {
+    hardware_interface::CallbackReturn::SUCCESS)
+  {
     return hardware_interface::CallbackReturn::ERROR;
   }
 
@@ -148,18 +149,18 @@ hardware_interface::CallbackReturn EezyBotArmHardware::on_init(
     }
 
     auto get_double_param = [&](const std::string & key, double fallback) {
-      auto it = parameters.find(key);
-      if (it == parameters.end()) {
-        return fallback;
-      }
-      try {
-        return std::stod(it->second);
-      } catch (const std::exception & e) {
-        RCLCPP_WARN(get_logger(), "Invalid %s '%s' for joint '%s', using %f: %s", key.c_str(),
+        auto it = parameters.find(key);
+        if (it == parameters.end()) {
+          return fallback;
+        }
+        try {
+          return std::stod(it->second);
+        } catch (const std::exception & e) {
+          RCLCPP_WARN(get_logger(), "Invalid %s '%s' for joint '%s', using %f: %s", key.c_str(),
                     it->second.c_str(), name.c_str(), fallback, e.what());
-        return fallback;
-      }
-    };
+          return fallback;
+        }
+      };
 
     config.rad_min = get_double_param("rad_min", -M_PI_2);
     config.rad_max = get_double_param("rad_max", M_PI_2);
@@ -200,7 +201,8 @@ hardware_interface::CallbackReturn EezyBotArmHardware::on_init(
   }
 
   if (joint_base_idx_ == -1 || joint_shoulder_idx_ == -1 ||
-      joint_elbow_idx_ == -1 || joint_gripper_idx_ == -1) {
+    joint_elbow_idx_ == -1 || joint_gripper_idx_ == -1)
+  {
     RCLCPP_FATAL(get_logger(),
                  "Not all joints found! Expected: waist_joint, "
                  "shoulder_joint, elbow_joint, finger_left_joint.");
@@ -212,7 +214,7 @@ hardware_interface::CallbackReturn EezyBotArmHardware::on_init(
 }
 
 hardware_interface::CallbackReturn EezyBotArmHardware::on_configure(
-    const rclcpp_lifecycle::State & /*previous_state*/)
+  const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(get_logger(), "Connecting to hardware...");
 
@@ -235,7 +237,7 @@ hardware_interface::CallbackReturn EezyBotArmHardware::on_configure(
 }
 
 hardware_interface::CallbackReturn EezyBotArmHardware::on_activate(
-    const rclcpp_lifecycle::State & /*previous_state*/)
+  const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(get_logger(), "Activating (Torque ON)...");
 
@@ -247,7 +249,7 @@ hardware_interface::CallbackReturn EezyBotArmHardware::on_activate(
 }
 
 hardware_interface::CallbackReturn EezyBotArmHardware::on_deactivate(
-    const rclcpp_lifecycle::State & /*previous_state*/)
+  const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(get_logger(), "Deactivating (Torque OFF)...");
 
@@ -289,8 +291,9 @@ EezyBotArmHardware::export_command_interfaces()
 }
 
 hardware_interface::return_type
-EezyBotArmHardware::read(const rclcpp::Time & /*time*/,
-                         const rclcpp::Duration & /*period*/)
+EezyBotArmHardware::read(
+  const rclcpp::Time & /*time*/,
+  const rclcpp::Duration & /*period*/)
 {
   for (std::size_t i = 0; i < hw_states_position_.size(); i++) {
     hw_states_position_[i] = hw_commands_position_[i];
@@ -300,8 +303,9 @@ EezyBotArmHardware::read(const rclcpp::Time & /*time*/,
 }
 
 hardware_interface::return_type
-EezyBotArmHardware::write(const rclcpp::Time & /*time*/,
-                          const rclcpp::Duration & /*period*/)
+EezyBotArmHardware::write(
+  const rclcpp::Time & /*time*/,
+  const rclcpp::Duration & /*period*/)
 {
   if (i2c_fd_ < 0) {
     return hardware_interface::return_type::OK;
@@ -318,7 +322,7 @@ EezyBotArmHardware::write(const rclcpp::Time & /*time*/,
     const double pulse_us = rad_to_pulse_us(i, actuator_rad);
     const double ticks_double = pulse_us * (PCA9685_RESOLUTION * pwm_frequency_ / 1000000.0);
     const std::uint16_t ticks =
-        static_cast<std::uint16_t>(std::lround(std::clamp(ticks_double, 0.0, 4095.0)));
+      static_cast<std::uint16_t>(std::lround(std::clamp(ticks_double, 0.0, 4095.0)));
 
     pwm_on_ticks_[config.channel] = 0;
     pwm_off_ticks_[config.channel] = ticks;
@@ -373,15 +377,16 @@ bool EezyBotArmHardware::init_pca9685()
   }
 
   if (!i2c_write_reg(i2c_fd_, i2c_address_, PCA9685_REG_MODE1,
-                     static_cast<std::uint8_t>(mode1 | PCA9685_MODE1_SLEEP))) {
+                     static_cast<std::uint8_t>(mode1 | PCA9685_MODE1_SLEEP)))
+  {
     RCLCPP_ERROR(get_logger(), "Failed to put PCA9685 to sleep");
     return false;
   }
 
   const double prescale_double =
-      std::round(PCA9685_OSCILLATOR_HZ / (PCA9685_RESOLUTION * pwm_frequency_)) - 1.0;
+    std::round(PCA9685_OSCILLATOR_HZ / (PCA9685_RESOLUTION * pwm_frequency_)) - 1.0;
   const std::uint8_t prescale =
-      static_cast<std::uint8_t>(std::clamp(prescale_double, 3.0, 255.0));
+    static_cast<std::uint8_t>(std::clamp(prescale_double, 3.0, 255.0));
 
   if (!i2c_write_reg(i2c_fd_, i2c_address_, PCA9685_REG_PRESCALE, prescale)) {
     RCLCPP_ERROR(get_logger(), "Failed to set PCA9685 prescale");
@@ -391,7 +396,7 @@ bool EezyBotArmHardware::init_pca9685()
   usleep(500);
 
   const std::uint8_t wake = static_cast<std::uint8_t>(
-      (mode1 & ~PCA9685_MODE1_SLEEP) | PCA9685_MODE1_AUTOINC | PCA9685_MODE1_RESTART);
+    (mode1 & ~PCA9685_MODE1_SLEEP) | PCA9685_MODE1_AUTOINC | PCA9685_MODE1_RESTART);
   if (!i2c_write_reg(i2c_fd_, i2c_address_, PCA9685_REG_MODE1, wake)) {
     RCLCPP_ERROR(get_logger(), "Failed to wake PCA9685");
     return false;
@@ -436,8 +441,9 @@ bool EezyBotArmHardware::write_pca9685_all_channels()
          static_cast<ssize_t>(buffer.size());
 }
 
-double EezyBotArmHardware::joint_to_actuator(std::size_t joint_idx,
-                                              double joint_value) const
+double EezyBotArmHardware::joint_to_actuator(
+  std::size_t joint_idx,
+  double joint_value) const
 {
   double value = joint_value * gear_ratio_[joint_idx];
   if (invert_direction_[joint_idx]) {
@@ -446,8 +452,9 @@ double EezyBotArmHardware::joint_to_actuator(std::size_t joint_idx,
   return value;
 }
 
-double EezyBotArmHardware::rad_to_pulse_us(std::size_t joint_idx,
-                                            double actuator_rad) const
+double EezyBotArmHardware::rad_to_pulse_us(
+  std::size_t joint_idx,
+  double actuator_rad) const
 {
   const ServoConfig & config = servo_config_[joint_idx];
   const double span = config.rad_max - config.rad_min;

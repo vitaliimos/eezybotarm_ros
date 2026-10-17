@@ -43,6 +43,10 @@ def generate_launch_description():
         remappings=[
             ('image_raw', '/camera/image_raw'),
             ('camera_info', '/camera/camera_info'),
+            ('image_raw/compressed', '/camera/image_raw/compressed'),
+            ('image_raw/compressedDepth', '/camera/image_raw/compressedDepth'),
+            ('image_raw/theora', '/camera/image_raw/theora'),
+            ('image_raw/zstd', '/camera/image_raw/zstd'),
         ],
         condition=run_real_camera,
         output='screen',
@@ -58,6 +62,10 @@ def generate_launch_description():
         remappings=[
             ('image_raw', '/camera/image_raw'),
             ('camera_info', '/camera/camera_info'),
+            ('image_raw/compressed', '/camera/image_raw/compressed'),
+            ('image_raw/compressedDepth', '/camera/image_raw/compressedDepth'),
+            ('image_raw/theora', '/camera/image_raw/theora'),
+            ('image_raw/zstd', '/camera/image_raw/zstd'),
         ],
         condition=run_mock_camera,
         output='screen',
