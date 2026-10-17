@@ -172,7 +172,7 @@ def detect_zones(
     img: np.ndarray,
     field_width_mm: float = 300.0,
     field_height_mm: float = 200.0,
-    min_zone_area: float = 5000.0,
+    min_zone_area: float = 10000.0,
 ) -> ZoneDetectionResult | None:
     """Detect the three workspace zones (left, middle, right) and compute homography."""
     if img is None or img.size == 0:

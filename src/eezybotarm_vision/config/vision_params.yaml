@@ -1,7 +1,7 @@
 camera:
   ros__parameters:
     video_device: "/dev/video0"
-    image_size: [1280, 800]
+    image_size: [800, 600]
     time_per_frame: [1, 10]
     pixel_format: "YUYV"
     output_encoding: "yuv422_yuy2"
