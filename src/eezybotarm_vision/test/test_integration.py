@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import pytest
 import rclpy
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage, Image
 
 HAS_MODEL_RUNNER = (
     importlib.util.find_spec('tensorrt') is not None
@@ -61,12 +61,19 @@ def test_vision_pipeline_integration():
 
         # Track messages
         debug_images_received = []
+        comp_images_received = []
 
         def on_debug_img(msg):
             debug_images_received.append(msg)
 
+        def on_comp_img(msg):
+            comp_images_received.append(msg)
+
         test_node.create_subscription(
             Image, '/eezybotarm_vision/debug_image', on_debug_img, 10
+        )
+        test_node.create_subscription(
+            CompressedImage, '/eezybotarm_vision/debug_image/compressed', on_comp_img, 10
         )
 
         # Publish test image
@@ -75,7 +82,7 @@ def test_vision_pipeline_integration():
         # Spin executor to process subscriptions
         for _ in range(30):
             executor.spin_once(timeout_sec=0.05)
-            if len(debug_images_received) > 0:
+            if len(debug_images_received) > 0 and len(comp_images_received) > 0:
                 break
 
         # Verify zones were calibrated and state transitioned to SCANNING
@@ -86,8 +93,10 @@ def test_vision_pipeline_integration():
         assert 'middle' in sort_node.calibration.zones
         assert 'right' in sort_node.calibration.zones
 
-        # Verify debug image published
+        # Verify debug images published
         assert len(debug_images_received) > 0, 'Debug image should be published'
+        assert len(comp_images_received) > 0, 'Compressed debug image should be published'
+        assert comp_images_received[0].format == 'jpeg'
 
     finally:
         rclpy.shutdown()

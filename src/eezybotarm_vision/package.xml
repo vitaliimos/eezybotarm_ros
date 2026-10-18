@@ -18,6 +18,7 @@
   <exec_depend>v4l2_camera</exec_depend>
   <exec_depend>image_publisher</exec_depend>
   <exec_depend>rqt_image_view</exec_depend>
+  <exec_depend>compressed_image_transport</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

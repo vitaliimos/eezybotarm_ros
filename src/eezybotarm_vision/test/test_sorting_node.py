@@ -39,6 +39,7 @@ def test_initial_state_and_properties(mock_detector):
         assert node.calibration is None
         assert node.active_calibration is None
         assert node.debug_image_pub.qos_profile.depth == 1
+        assert node.debug_compressed_pub.qos_profile.depth == 1
     finally:
         node.destroy_node()
 
@@ -200,20 +201,21 @@ def test_update_candidate_tracking(mock_detector):
 
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_publish_debug_image(mock_detector):
-    """Verify debug image is published only when subscribers exist."""
+    """Verify debug image is published via visualizer."""
     node = SortingCoordinatorNode()
     try:
         dummy_frame = np.zeros((50, 50, 3), dtype=np.uint8)
         header = MagicMock()
 
-        with patch.object(node.debug_image_pub, 'get_subscription_count', return_value=0):
-            with patch.object(node.debug_image_pub, 'publish') as mock_pub:
-                node._publish_debug_image(dummy_frame, [], header)
-                mock_pub.assert_not_called()
-
-        with patch.object(node.debug_image_pub, 'get_subscription_count', return_value=1):
-            with patch.object(node.debug_image_pub, 'publish') as mock_pub:
-                node._publish_debug_image(dummy_frame, [], header)
-                mock_pub.assert_called_once()
+        with patch.object(node.visualizer, 'publish') as mock_viz_publish:
+            node._publish_debug_image(dummy_frame, [], header)
+            mock_viz_publish.assert_called_once_with(
+                frame=dummy_frame,
+                header=header,
+                state_text=node.state.value,
+                calibration=node.calibration,
+                detections=[],
+                status_extra='',
+            )
     finally:
         node.destroy_node()

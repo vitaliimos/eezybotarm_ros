@@ -4,7 +4,6 @@ from enum import Enum
 import os
 import time
 
-import cv2
 from cv_bridge import CvBridge
 from eezybotarm_interfaces.action import PickObject
 import numpy as np
@@ -14,10 +13,10 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 
 from .coordinate_mapper import CoordinateMapper
+from .debug_visualizer import DebugVisualizer
 from .yolo_detector import CubeDetection, YoloCubeDetector
 from .zone_detector import (
     detect_zones,
-    draw_zones,
     get_real_coordinates,
     identify_zone,
     ZoneDetectionResult,
@@ -52,6 +51,7 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('robot_y_offset_m', 0.0)
         self.declare_parameter('table_z_m', 0.095)
         self.declare_parameter('cube_height_m', 0.025)
+        self.declare_parameter('debug_image_jpeg_quality', 80)
         self.declare_parameter('action_name', 'pick_and_place')
 
         weights_path = self.get_parameter('weights_path').value or default_model_path
@@ -60,6 +60,7 @@ class SortingCoordinatorNode(Node):
         conf_thresh = self.get_parameter('conf_threshold').value
         self.stable_frames_required = self.get_parameter('stable_frames_required').value
         self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
+        jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
 
         self.get_logger().info(f'Loading Cube Detector with: "{weights_path}"...')
         try:
@@ -92,7 +93,7 @@ class SortingCoordinatorNode(Node):
             self.image_callback,
             10,
         )
-        self.debug_image_pub = self.create_publisher(Image, '/eezybotarm_vision/debug_image', 1)
+        self.visualizer = DebugVisualizer(node=self, jpeg_quality=jpeg_quality)
 
         # State management
         self._state = SortingState.CALIBRATING
@@ -122,6 +123,16 @@ class SortingCoordinatorNode(Node):
     def active_calibration(self) -> ZoneDetectionResult | None:
         """Get current calibration for backward compatibility."""
         return self.calibration
+
+    @property
+    def debug_image_pub(self):
+        """Get the debug image publisher."""
+        return self.visualizer.debug_image_pub
+
+    @property
+    def debug_compressed_pub(self):
+        """Get the debug compressed image publisher."""
+        return self.visualizer.debug_compressed_pub
 
     def image_callback(self, msg: Image) -> None:
         if self._is_processing:
@@ -261,11 +272,20 @@ class SortingCoordinatorNode(Node):
         header,
     ) -> None:
         """Publish annotated debug overlay if subscribers exist."""
-        if self.debug_image_pub.get_subscription_count() > 0:
-            annotated = self._render_debug_overlay(frame, detections)
-            debug_msg = self.bridge.cv2_to_imgmsg(annotated, encoding='bgr8')
-            debug_msg.header = header
-            self.debug_image_pub.publish(debug_msg)
+        status_extra = ''
+        if self.state == SortingState.CONFIRMING:
+            status_extra = f' ({self.candidate_frames_count}/{self.stable_frames_required})'
+        elif self.state == SortingState.EXECUTING:
+            status_extra = f' [{self.current_action_phase}]'
+
+        self.visualizer.publish(
+            frame=frame,
+            header=header,
+            state_text=self.state.value,
+            calibration=self.calibration,
+            detections=detections,
+            status_extra=status_extra,
+        )
 
     def _handle_image(self, msg: Image) -> None:
         frame = self._convert_image(msg)
@@ -284,86 +304,6 @@ class SortingCoordinatorNode(Node):
             self._handle_executing()
 
         self._publish_debug_image(frame, detections_with_zones, msg.header)
-
-    def _render_debug_overlay(
-        self,
-        frame: np.ndarray,
-        detections: list[tuple[CubeDetection, str, float, float]],
-    ) -> np.ndarray:
-        annotated = frame.copy()
-        if self.state == SortingState.CALIBRATING:
-            cv2.putText(
-                annotated,
-                'Calibrating: Looking for 3 Zones...',
-                (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.7,
-                color=(0, 0, 255),
-                thickness=2,
-            )
-        elif self.calibration is not None:
-            annotated = draw_zones(annotated, self.calibration)
-
-        for det, zone, x_mm, y_mm in detections:
-            self._draw_cube(annotated, det, zone, x_mm, y_mm)
-
-        status_text = f'State: {self.state.value}'
-        if self.state == SortingState.CONFIRMING:
-            status_text += f' ({self.candidate_frames_count}/{self.stable_frames_required})'
-        elif self.state == SortingState.EXECUTING:
-            status_text += f' [{self.current_action_phase}]'
-
-        cv2.putText(
-            annotated,
-            status_text,
-            (20, 25),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=0.75,
-            color=(0, 255, 255),
-            thickness=2,
-        )
-        return annotated
-
-    def _draw_cube(
-        self,
-        img: np.ndarray,
-        det: CubeDetection,
-        zone: str,
-        x_mm: float,
-        y_mm: float,
-    ) -> None:
-        x1, y1, x2, y2 = [int(v) for v in det.bbox_xyxy]
-        color = (0, 255, 0) if det.class_id == 0 else (255, 255, 255)
-        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-        cv2.drawMarker(
-            img,
-            (int(det.center_px[0]), int(det.center_px[1])),
-            (0, 0, 255),
-            cv2.MARKER_CROSS,
-            markerSize=10,
-            thickness=2,
-        )
-        label = f'{det.class_name} ({det.confidence:.2f}) [{zone}]'
-        cv2.putText(
-            img,
-            label,
-            (x1, max(20, y1 - 8)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=0.5,
-            color=color,
-            thickness=2,
-        )
-        if zone != 'unknown':
-            coords_lbl = f'({x_mm:.0f}, {y_mm:.0f})mm'
-            cv2.putText(
-                img,
-                coords_lbl,
-                (x1, min(img.shape[0] - 10, y2 + 18)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.45,
-                color=(0, 255, 255),
-                thickness=1,
-            )
 
     def _dispatch_pick_and_place(
         self, det: CubeDetection, pick_x_mm: float, pick_y_mm: float
