@@ -30,6 +30,19 @@ def _create_mock_image_msg() -> Image:
     return msg
 
 
+def _make_cube(
+    class_id: int,
+    class_name: str,
+    confidence: float,
+    bbox: tuple[float, float, float, float],
+    center: tuple[float, float],
+    angle: float = 0.0,
+) -> CubeDetection:
+    x1, y1, x2, y2 = bbox
+    corners = ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
+    return CubeDetection(class_id, class_name, confidence, bbox, center, angle, corners)
+
+
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_initial_state_and_properties(mock_detector):
     """Verify initial state is CALIBRATING and properties work as expected."""
@@ -133,7 +146,7 @@ def test_handle_cooldown(mock_detector):
         node.state = SortingState.COOLDOWN
         node.cooldown_start_time = 100.0
         node.cooldown_duration_sec = 2.5
-        node.candidate_cube = CubeDetection(0, 'green_cube', 0.9, (0, 0, 10, 10), (5.0, 5.0))
+        node.candidate_cube = _make_cube(0, 'green_cube', 0.9, (0, 0, 10, 10), (5.0, 5.0))
         node.candidate_frames_count = 5
 
         # Timer not reached yet
@@ -157,10 +170,10 @@ def test_is_cube_match(mock_detector):
     """Verify cube matching based on class ID and pixel distance."""
     node = SortingCoordinatorNode()
     try:
-        base_cube = CubeDetection(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
-        same_cube = CubeDetection(0, 'green_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
-        diff_class = CubeDetection(1, 'white_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
-        far_cube = CubeDetection(0, 'green_cube', 0.85, (80, 80, 100, 100), (90.0, 90.0))
+        base_cube = _make_cube(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
+        same_cube = _make_cube(0, 'green_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
+        diff_class = _make_cube(1, 'white_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
+        far_cube = _make_cube(0, 'green_cube', 0.85, (80, 80, 100, 100), (90.0, 90.0))
 
         assert node._is_cube_match(base_cube, same_cube) is True
         assert node._is_cube_match(base_cube, diff_class) is False
@@ -175,7 +188,7 @@ def test_update_candidate_tracking(mock_detector):
     node = SortingCoordinatorNode()
     try:
         node.stable_frames_required = 2
-        det = CubeDetection(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
+        det = _make_cube(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
         item = (det, 'middle', 150.0, 100.0)
 
         # 1. First detection sets candidate and count to 1

@@ -17,7 +17,8 @@ class CubeDetection:
     confidence: float
     bbox_xyxy: tuple[float, float, float, float]
     center_px: tuple[float, float]
-    angle: float = 0.0
+    angle: float
+    corners: tuple[tuple[float, float], ...]
 
 
 class TrtRunner:
@@ -143,9 +144,15 @@ class YoloCubeDetector:
 
     CLASS_NAMES = {0: 'green_cube', 1: 'white_cube'}
 
-    def __init__(self, weights_path: str = '', conf_threshold: float = 0.5):
+    def __init__(
+        self,
+        weights_path: str = '',
+        conf_threshold: float = 0.5,
+        iou_threshold: float = 0.45,
+    ):
         self.weights_path = weights_path
         self.conf_threshold = conf_threshold
+        self.iou_threshold = iou_threshold
         self._runner = None
         self._load_model()
 
@@ -197,9 +204,9 @@ class YoloCubeDetector:
         dh = (target_h - new_unpad_h) / 2.0
 
         top = round(dh - 0.1)
-        bottom = round(dh + 0.1)
+        bottom = int(target_h - new_unpad_h - top)
         left = round(dw - 0.1)
-        right = round(dw + 0.1)
+        right = int(target_w - new_unpad_w - left)
 
         if (orig_w, orig_h) != (new_unpad_w, new_unpad_h):
             resized = cv2.resize(
@@ -247,32 +254,89 @@ class YoloCubeDetector:
         if out is None or len(out) == 0:
             return []
 
-        preds = out[0]
+        # yolo26-obb output format: [1, 7, 8400] -> transpose to [8400, 7]
+        preds = out[0].T
+
+        # Columns: cx, cy, w, h, score_green, score_white, angle
+        boxes = preds[:, :4]
+        cls_scores = preds[:, 4:6]
+        angles = preds[:, 6]
+
+        confidences = np.max(cls_scores, axis=1)
+        cls_ids = np.argmax(cls_scores, axis=1)
+
+        # Confidence threshold filtering
+        mask = confidences >= self.conf_threshold
+        if not np.any(mask):
+            return []
+
+        boxes = boxes[mask]
+        confidences = confidences[mask]
+        cls_ids = cls_ids[mask]
+        angles = angles[mask]
+
+        # Rescale coordinates to original image space
+        cx = (boxes[:, 0] - pad_x) / scale
+        cy = (boxes[:, 1] - pad_y) / scale
+        w = boxes[:, 2] / scale
+        h = boxes[:, 3] / scale
+
+        # Calculate oriented box corners
+        cos_val = np.cos(angles)
+        sin_val = np.sin(angles)
+        vec1_x, vec1_y = (w / 2.0) * cos_val, (w / 2.0) * sin_val
+        vec2_x, vec2_y = -(h / 2.0) * sin_val, (h / 2.0) * cos_val
+
+        p1_x, p1_y = cx + vec1_x + vec2_x, cy + vec1_y + vec2_y
+        p2_x, p2_y = cx + vec1_x - vec2_x, cy + vec1_y - vec2_y
+        p3_x, p3_y = cx - vec1_x - vec2_x, cy - vec1_y - vec2_y
+        p4_x, p4_y = cx - vec1_x + vec2_x, cy - vec1_y + vec2_y
+
+        corners_x = np.stack([p1_x, p2_x, p3_x, p4_x], axis=0)
+        corners_y = np.stack([p1_y, p2_y, p3_y, p4_y], axis=0)
+
+        min_x = np.clip(corners_x.min(axis=0), 0.0, float(orig_w))
+        min_y = np.clip(corners_y.min(axis=0), 0.0, float(orig_h))
+        max_x = np.clip(corners_x.max(axis=0), 0.0, float(orig_w))
+        max_y = np.clip(corners_y.max(axis=0), 0.0, float(orig_h))
+
+        # Class-wise Non-Maximum Suppression (NMS)
+        nms_boxes = np.stack([min_x, min_y, max_x - min_x, max_y - min_y], axis=1)
+
+        keep_indices = []
+        for c in np.unique(cls_ids):
+            c_mask = np.where(cls_ids == c)[0]
+            c_keep = cv2.dnn.NMSBoxes(
+                nms_boxes[c_mask],
+                confidences[c_mask],
+                score_threshold=float(self.conf_threshold),
+                nms_threshold=float(self.iou_threshold),
+            )
+            if len(c_keep) > 0:
+                keep_indices.extend(c_mask[np.array(c_keep).reshape(-1)])
 
         detections: list[CubeDetection] = []
-        for row in preds:
-            if len(row) < 6:
-                continue
-
-            conf = float(row[4])
-            if conf < self.conf_threshold:
-                continue
-
-            cx = float(np.clip((row[0] - pad_x) / scale, 0.0, float(orig_w)))
-            cy = float(np.clip((row[1] - pad_y) / scale, 0.0, float(orig_h)))
-            w = float(row[2] / scale)
-            h = float(row[3] / scale)
-            cls_id = int(row[5])
-            angle = float(row[6]) if len(row) >= 7 else 0.0
-
+        for idx in keep_indices:
+            cls_id = int(cls_ids[idx])
             detections.append(
                 CubeDetection(
                     class_id=cls_id,
                     class_name=self.CLASS_NAMES.get(cls_id, f'class_{cls_id}'),
-                    confidence=conf,
-                    bbox_xyxy=(cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0),
-                    center_px=(cx, cy),
-                    angle=angle,
+                    confidence=float(confidences[idx]),
+                    bbox_xyxy=(
+                        float(min_x[idx]),
+                        float(min_y[idx]),
+                        float(max_x[idx]),
+                        float(max_y[idx]),
+                    ),
+                    center_px=(float(cx[idx]), float(cy[idx])),
+                    angle=float(angles[idx]),
+                    corners=(
+                        (float(p1_x[idx]), float(p1_y[idx])),
+                        (float(p2_x[idx]), float(p2_y[idx])),
+                        (float(p3_x[idx]), float(p3_y[idx])),
+                        (float(p4_x[idx]), float(p4_y[idx])),
+                    ),
                 )
             )
 

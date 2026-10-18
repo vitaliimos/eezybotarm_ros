@@ -7,6 +7,7 @@ import sys
 import time
 
 import cv2
+import numpy as np
 
 # Add package source to PYTHONPATH if not installed
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,6 +41,12 @@ def main():
         help='Confidence threshold (default: 0.5)',
     )
     parser.add_argument(
+        '--iou',
+        type=float,
+        default=0.45,
+        help='IoU threshold for NMS (default: 0.45)',
+    )
+    parser.add_argument(
         '--output',
         '-o',
         default='/tmp/yolo_test_result.jpg',
@@ -58,7 +65,11 @@ def main():
 
     print(f'Loading model: {args.weights}')
     start_init = time.perf_counter()
-    detector = YoloCubeDetector(weights_path=args.weights, conf_threshold=args.conf)
+    detector = YoloCubeDetector(
+        weights_path=args.weights,
+        conf_threshold=args.conf,
+        iou_threshold=args.iou,
+    )
     init_time_ms = (time.perf_counter() - start_init) * 1000.0
     print(f'Model loaded in {init_time_ms:.1f} ms')
 
@@ -90,9 +101,10 @@ def main():
         )
 
         # Annotate
-        x1, y1, x2, y2 = [int(v) for v in d.bbox_xyxy]
         color = (0, 220, 0) if d.class_name == 'green_cube' else (255, 255, 255)
-        cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+        pts = np.array(d.corners, dtype=np.int32).reshape((-1, 1, 2))
+        cv2.polylines(image, [pts], isClosed=True, color=color, thickness=2)
+        x1, y1 = int(d.bbox_xyxy[0]), int(d.bbox_xyxy[1])
         label = f'{d.class_name} {d.confidence:.2f}'
         cv2.putText(
             image,

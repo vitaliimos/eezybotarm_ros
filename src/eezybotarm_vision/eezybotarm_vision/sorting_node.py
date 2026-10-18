@@ -43,6 +43,7 @@ class SortingCoordinatorNode(Node):
 
         self.declare_parameter('weights_path', default_model_path)
         self.declare_parameter('conf_threshold', 0.5)
+        self.declare_parameter('iou_threshold', 0.45)
         self.declare_parameter('stable_frames_required', 8)
         self.declare_parameter('cooldown_duration_sec', 2.5)
         self.declare_parameter('paper_width_mm', 300.0)
@@ -58,6 +59,7 @@ class SortingCoordinatorNode(Node):
         if not os.path.exists(weights_path) and os.path.exists(default_model_path):
             weights_path = default_model_path
         conf_thresh = self.get_parameter('conf_threshold').value
+        iou_thresh = self.get_parameter('iou_threshold').value
         self.stable_frames_required = self.get_parameter('stable_frames_required').value
         self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
         jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
@@ -67,6 +69,7 @@ class SortingCoordinatorNode(Node):
             self.detector = YoloCubeDetector(
                 weights_path=weights_path,
                 conf_threshold=conf_thresh,
+                iou_threshold=iou_thresh,
             )
             self.get_logger().info('Cube detector initialized successfully.')
         except Exception as exc:

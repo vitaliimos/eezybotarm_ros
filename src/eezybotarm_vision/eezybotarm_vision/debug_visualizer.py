@@ -125,9 +125,10 @@ class DebugVisualizer:
         y_mm: float,
     ) -> None:
         """Draw bounding box and center marker for a detected cube."""
-        x1, y1, x2, y2 = [int(v) for v in det.bbox_xyxy]
         color = (0, 255, 0) if det.class_id == 0 else (255, 255, 255)
-        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        pts = np.array(det.corners, dtype=np.int32).reshape((-1, 1, 2))
+        cv2.polylines(img, [pts], isClosed=True, color=color, thickness=2)
+        x1, y1, y2 = int(det.bbox_xyxy[0]), int(det.bbox_xyxy[1]), int(det.bbox_xyxy[3])
         cv2.drawMarker(
             img,
             (int(det.center_px[0]), int(det.center_px[1])),
