@@ -9,7 +9,7 @@ camera:
     camera_frame_id: "camera_optical_frame"
     brightness: 135
     auto_exposure: 1
-    exposure_time_absolute: 350
+    exposure_time_absolute: 156
 
 mock_camera:
   ros__parameters:
