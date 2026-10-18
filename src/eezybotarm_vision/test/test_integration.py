@@ -35,7 +35,7 @@ def _create_image_msg(node, frame: np.ndarray) -> Image:
 )
 def test_vision_pipeline_integration():
     """Verify camera feed processing, zone detection, and cube classification."""
-    from eezybotarm_vision.sorting_node import SortingCoordinatorNode
+    from eezybotarm_vision.sorting_node import SortingCoordinatorNode, SortingState
 
     rclpy.init()
     try:
@@ -78,11 +78,13 @@ def test_vision_pipeline_integration():
             if len(debug_images_received) > 0:
                 break
 
-        # Verify zones were calibrated
-        assert sort_node.active_calibration is not None, 'Active calibration should be detected'
-        assert 'left' in sort_node.active_calibration.zones
-        assert 'middle' in sort_node.active_calibration.zones
-        assert 'right' in sort_node.active_calibration.zones
+        # Verify zones were calibrated and state transitioned to SCANNING
+        assert sort_node.state == SortingState.SCANNING
+        assert sort_node.calibration is not None, 'Calibration should be detected'
+        assert sort_node.active_calibration is not None, 'Active calibration property should match'
+        assert 'left' in sort_node.calibration.zones
+        assert 'middle' in sort_node.calibration.zones
+        assert 'right' in sort_node.calibration.zones
 
         # Verify debug image published
         assert len(debug_images_received) > 0, 'Debug image should be published'

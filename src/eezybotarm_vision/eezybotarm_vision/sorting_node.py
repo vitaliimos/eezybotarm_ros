@@ -132,116 +132,158 @@ class SortingCoordinatorNode(Node):
         finally:
             self._is_processing = False
 
-    def _handle_image(self, msg: Image) -> None:
+    def _convert_image(self, msg: Image) -> np.ndarray | None:
+        """Convert ROS Image message to OpenCV BGR image."""
         try:
-            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            return self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as exc:
             self.get_logger().warn(
                 f'Failed to convert image frame: {exc}', throttle_duration_sec=2.0
             )
-            return
+            return None
 
+    def _handle_calibrating(self, frame: np.ndarray) -> None:
+        """Handle workspace calibration by attempting zone detection."""
+        detected_zones = detect_zones(
+            frame,
+            field_width_mm=self.coord_mapper.paper_width_mm,
+            field_height_mm=self.coord_mapper.paper_height_mm,
+        )
+        if detected_zones is not None:
+            self.calibration = detected_zones
+            self.get_logger().info('Workspace zones detected and locked.')
+            self.state = SortingState.SCANNING
+
+    def _handle_cooldown(self) -> None:
+        """Handle cooldown timer after completing a pick-and-place action."""
         now = time.monotonic()
+        if now - self.cooldown_start_time >= self.cooldown_duration_sec:
+            self.state = SortingState.SCANNING
+            self.candidate_cube = None
+            self.candidate_frames_count = 0
+            self.get_logger().info('Cooldown finished, resumed scanning.')
 
-        # 1. Calibrate workspace zones once if in CALIBRATING state
-        if self.state == SortingState.CALIBRATING:
-            detected_zones = detect_zones(
-                frame,
-                field_width_mm=self.coord_mapper.paper_width_mm,
-                field_height_mm=self.coord_mapper.paper_height_mm,
-            )
-            if detected_zones is not None:
-                self.calibration = detected_zones
-                self.get_logger().info('Workspace zones detected and locked.')
-                self.state = SortingState.SCANNING
-            else:
-                if self.debug_image_pub.get_subscription_count() > 0:
-                    annotated = self._render_debug_overlay(frame, [])
-                    debug_msg = self.bridge.cv2_to_imgmsg(annotated, encoding='bgr8')
-                    debug_msg.header = msg.header
-                    self.debug_image_pub.publish(debug_msg)
-                return
+    def _handle_executing(self) -> None:
+        """Handle frames during active action execution (no tracking)."""
+        pass
 
-        # 2. State Machine Execution
-        if self.state == SortingState.COOLDOWN:
-            if now - self.cooldown_start_time >= self.cooldown_duration_sec:
-                self.state = SortingState.SCANNING
-                self.candidate_cube = None
-                self.candidate_frames_count = 0
-                self.get_logger().info('Cooldown finished, resumed scanning.')
+    def _detect_and_map_cubes(
+        self, frame: np.ndarray
+    ) -> tuple[
+        list[tuple[CubeDetection, str, float, float]],
+        list[tuple[CubeDetection, str, float, float]],
+    ]:
+        """Detect cubes using YOLO and compute real workspace coordinates and zones."""
+        assert self.calibration is not None
+        raw_detections = self.detector.predict(frame)
 
         detections_with_zones: list[tuple[CubeDetection, str, float, float]] = []
         middle_detections: list[tuple[CubeDetection, str, float, float]] = []
 
-        if self.state in (SortingState.SCANNING, SortingState.CONFIRMING):
-            assert self.calibration is not None
-            raw_detections = self.detector.predict(frame)
+        for det in raw_detections:
+            x_mm, y_mm = get_real_coordinates(
+                det.center_px[0],
+                det.center_px[1],
+                self.calibration.homography_matrix,
+            )
+            zone = identify_zone(
+                x_mm,
+                y_mm,
+                self.coord_mapper.paper_width_mm,
+                self.coord_mapper.paper_height_mm,
+            )
 
-            for det in raw_detections:
-                x_mm, y_mm = get_real_coordinates(
-                    det.center_px[0],
-                    det.center_px[1],
-                    self.calibration.homography_matrix,
-                )
-                zone = identify_zone(
-                    x_mm,
-                    y_mm,
-                    self.coord_mapper.paper_width_mm,
-                    self.coord_mapper.paper_height_mm,
-                )
+            item = (det, zone, x_mm, y_mm)
+            detections_with_zones.append(item)
 
-                item = (det, zone, x_mm, y_mm)
-                detections_with_zones.append(item)
+            if zone == 'middle':
+                middle_detections.append(item)
 
-                if zone == 'middle':
-                    middle_detections.append(item)
+        return detections_with_zones, middle_detections
 
-            middle_candidate = None
-            if self.candidate_cube is not None:
-                for item in middle_detections:
-                    det = item[0]
-                    if (
-                        det.class_id == self.candidate_cube.class_id
-                        and abs(self.candidate_cube.center_px[0] - det.center_px[0]) < 25.0
-                        and abs(self.candidate_cube.center_px[1] - det.center_px[1]) < 25.0
-                    ):
-                        middle_candidate = item
-                        break
-            if middle_candidate is None and middle_detections:
-                middle_candidate = middle_detections[0]
+    def _is_cube_match(
+        self, a: CubeDetection, b: CubeDetection, max_dist_px: float = 25.0
+    ) -> bool:
+        """Check if two cube detections represent the same object."""
+        return (
+            a.class_id == b.class_id
+            and abs(a.center_px[0] - b.center_px[0]) < max_dist_px
+            and abs(a.center_px[1] - b.center_px[1]) < max_dist_px
+        )
 
-            if middle_candidate is not None:
-                det, _, x_mm, y_mm = middle_candidate
-                if (
-                    self.candidate_cube is not None
-                    and self.candidate_cube.class_id == det.class_id
-                    and abs(self.candidate_cube.center_px[0] - det.center_px[0]) < 25.0
-                    and abs(self.candidate_cube.center_px[1] - det.center_px[1]) < 25.0
-                ):
-                    self.candidate_cube = det
-                    self.candidate_frames_count += 1
-                else:
-                    self.candidate_cube = det
-                    self.candidate_frames_count = 1
+    def _update_candidate_tracking(
+        self, middle_detections: list[tuple[CubeDetection, str, float, float]]
+    ) -> None:
+        """Update candidate stability tracking and trigger action when stable."""
+        middle_candidate = None
+        if self.candidate_cube is not None:
+            for item in middle_detections:
+                if self._is_cube_match(self.candidate_cube, item[0]):
+                    middle_candidate = item
+                    break
 
-                self.state = SortingState.CONFIRMING
-                if self.candidate_frames_count >= self.stable_frames_required:
-                    self.get_logger().info(
-                        f'Cube confirmed: {det.class_name} at ({x_mm:.1f}, {y_mm:.1f}) mm. '
-                        'Dispatching pick and place goal!'
-                    )
-                    self._dispatch_pick_and_place(det, x_mm, y_mm)
+        if middle_candidate is None and middle_detections:
+            middle_candidate = middle_detections[0]
+
+        if middle_candidate is not None:
+            det, _, x_mm, y_mm = middle_candidate
+            if self.candidate_cube is not None and self._is_cube_match(self.candidate_cube, det):
+                self.candidate_cube = det
+                self.candidate_frames_count += 1
             else:
-                self.candidate_cube = None
-                self.candidate_frames_count = 0
-                self.state = SortingState.SCANNING
+                self.candidate_cube = det
+                self.candidate_frames_count = 1
 
-        # 3. Publish debug overlay if subscribers exist
+            self.state = SortingState.CONFIRMING
+            if self.candidate_frames_count >= self.stable_frames_required:
+                self.get_logger().info(
+                    f'Cube confirmed: {det.class_name} at ({x_mm:.1f}, {y_mm:.1f}) mm. '
+                    'Dispatching pick and place goal!'
+                )
+                self._dispatch_pick_and_place(det, x_mm, y_mm)
+        else:
+            self.candidate_cube = None
+            self.candidate_frames_count = 0
+            self.state = SortingState.SCANNING
+
+    def _handle_scanning(
+        self, frame: np.ndarray
+    ) -> list[tuple[CubeDetection, str, float, float]]:
+        """Detect cubes and track middle-zone candidate."""
+        all_detections, middle_detections = self._detect_and_map_cubes(frame)
+        self._update_candidate_tracking(middle_detections)
+        return all_detections
+
+    def _publish_debug_image(
+        self,
+        frame: np.ndarray,
+        detections: list[tuple[CubeDetection, str, float, float]],
+        header,
+    ) -> None:
+        """Publish annotated debug overlay if subscribers exist."""
         if self.debug_image_pub.get_subscription_count() > 0:
-            annotated = self._render_debug_overlay(frame, detections_with_zones)
+            annotated = self._render_debug_overlay(frame, detections)
             debug_msg = self.bridge.cv2_to_imgmsg(annotated, encoding='bgr8')
-            debug_msg.header = msg.header
+            debug_msg.header = header
             self.debug_image_pub.publish(debug_msg)
+
+    def _handle_image(self, msg: Image) -> None:
+        frame = self._convert_image(msg)
+        if frame is None:
+            return
+
+        detections_with_zones: list[tuple[CubeDetection, str, float, float]] = []
+
+        if self.state == SortingState.CALIBRATING:
+            self._handle_calibrating(frame)
+        elif self.state == SortingState.COOLDOWN:
+            self._handle_cooldown()
+        elif self.state in (SortingState.SCANNING, SortingState.CONFIRMING):
+            detections_with_zones = self._handle_scanning(frame)
+        elif self.state == SortingState.EXECUTING:
+            self._handle_executing()
+
+        self._publish_debug_image(frame, detections_with_zones, msg.header)
 
     def _render_debug_overlay(
         self,
@@ -255,9 +297,9 @@ class SortingCoordinatorNode(Node):
                 'Calibrating: Looking for 3 Zones...',
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 0, 255),
-                2,
+                fontScale=0.7,
+                color=(0, 0, 255),
+                thickness=2,
             )
         elif self.calibration is not None:
             annotated = draw_zones(annotated, self.calibration)
@@ -276,9 +318,9 @@ class SortingCoordinatorNode(Node):
             status_text,
             (20, 25),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.75,
-            (0, 255, 255),
-            2,
+            fontScale=0.75,
+            color=(0, 255, 255),
+            thickness=2,
         )
         return annotated
 
@@ -307,9 +349,9 @@ class SortingCoordinatorNode(Node):
             label,
             (x1, max(20, y1 - 8)),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            color,
-            2,
+            fontScale=0.5,
+            color=color,
+            thickness=2,
         )
         if zone != 'unknown':
             coords_lbl = f'({x_mm:.0f}, {y_mm:.0f})mm'
@@ -318,9 +360,9 @@ class SortingCoordinatorNode(Node):
                 coords_lbl,
                 (x1, min(img.shape[0] - 10, y2 + 18)),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
-                (0, 255, 255),
-                1,
+                fontScale=0.45,
+                color=(0, 255, 255),
+                thickness=1,
             )
 
     def _dispatch_pick_and_place(
