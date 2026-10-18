@@ -28,4 +28,4 @@ sorting_coordinator_node:
     paper_height_mm: 200.0
     robot_x_offset_m: 0.150
     robot_y_offset_m: 0.0
-    table_z_m: 0.075
+    table_z_m: 0.095

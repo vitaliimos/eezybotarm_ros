@@ -119,15 +119,20 @@ class PickAndPlaceActionServer(Node):
         return result
 
     @staticmethod
-    def _position_only_constraints(pose_stamped: PoseStamped, link: str) -> list:
+    def _position_only_constraints(
+        pose_stamped: PoseStamped,
+        link: str,
+        tolerance_m: float = 0.003,
+    ) -> list:
         pc = PositionConstraint()
         pc.header = pose_stamped.header
         if not pc.header.frame_id:
             pc.header.frame_id = 'base_link'
+        pc.weight = 1.0
         pc.link_name = link
         sphere = SolidPrimitive()
         sphere.type = SolidPrimitive.SPHERE
-        sphere.dimensions = [1e-3]
+        sphere.dimensions = [tolerance_m]
         region_pose = Pose()
         region_pose.position = pose_stamped.pose.position
         region_pose.orientation.w = 1.0
@@ -146,6 +151,7 @@ class PickAndPlaceActionServer(Node):
         constraints: list = None,
     ) -> bool:
         component.set_start_state_to_current_state()
+        component.set_workspace(-0.5, -0.5, -0.5, 0.5, 0.5, 0.5)
 
         if configuration_name:
             component.set_goal_state(configuration_name=configuration_name)

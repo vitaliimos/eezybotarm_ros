@@ -12,7 +12,7 @@ class CoordinateMapper:
         paper_height_mm: float = 200.0,
         robot_x_offset_m: float = 0.150,
         robot_y_offset_m: float = 0.0,
-        table_z_m: float = 0.075,
+        table_z_m: float = 0.095,
         cube_height_m: float = 0.025,
     ):
         self.paper_width_mm = paper_width_mm

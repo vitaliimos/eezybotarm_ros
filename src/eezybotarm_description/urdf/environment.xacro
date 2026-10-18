@@ -27,14 +27,14 @@
       <origin xyz="0.210 0.0 -0.009" rpy="0 0 0"/>
     </joint>
 
-    <!-- Elevated Sorting Work Table (200 x 300 x 75 mm) -->
+    <!-- Elevated Sorting Work Table (200 x 300 x 95 mm) -->
     <!-- Front edge of board is at X = +0.460 m. Table is 110mm from front edge, depth is 200mm. -->
-    <!-- Table spans X in [+0.150, +0.350], center is at X = +0.250 m, Z top at +0.075 m (center at Z = 0.0375 m) -->
+    <!-- Table spans X in [+0.150, +0.350], center is at X = +0.250 m, Z top at +0.095 m (center at Z = 0.0475 m) -->
     <link name="work_table">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="0.200 0.300 0.075"/>
+          <box size="0.200 0.300 0.095"/>
         </geometry>
         <material name="table_surface">
           <color rgba="0.94 0.94 0.96 1.0"/>
@@ -43,7 +43,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="0.200 0.300 0.075"/>
+          <box size="0.200 0.300 0.095"/>
         </geometry>
       </collision>
     </link>
@@ -51,7 +51,7 @@
     <joint name="${parent}_to_work_table" type="fixed">
       <parent link="${parent}"/>
       <child link="work_table"/>
-      <origin xyz="0.250 0.0 0.0375" rpy="0 0 0"/>
+      <origin xyz="0.250 0.0 0.0475" rpy="0 0 0"/>
     </joint>
 
     <!-- Camera Stand (height 300 mm, base width ~120 mm) -->

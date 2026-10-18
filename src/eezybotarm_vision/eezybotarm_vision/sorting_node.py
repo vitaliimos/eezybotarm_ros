@@ -25,6 +25,7 @@ from .zone_detector import (
 
 
 class SortingState(Enum):
+    CALIBRATING = 'CALIBRATING'
     SCANNING = 'SCANNING'
     CONFIRMING = 'CONFIRMING'
     EXECUTING = 'EXECUTING'
@@ -49,7 +50,7 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('paper_height_mm', 200.0)
         self.declare_parameter('robot_x_offset_m', 0.150)
         self.declare_parameter('robot_y_offset_m', 0.0)
-        self.declare_parameter('table_z_m', 0.075)
+        self.declare_parameter('table_z_m', 0.095)
         self.declare_parameter('cube_height_m', 0.025)
         self.declare_parameter('action_name', 'pick_and_place')
 
@@ -91,18 +92,36 @@ class SortingCoordinatorNode(Node):
             self.image_callback,
             10,
         )
-        self.debug_image_pub = self.create_publisher(Image, '/eezybotarm_vision/debug_image', 10)
+        self.debug_image_pub = self.create_publisher(Image, '/eezybotarm_vision/debug_image', 1)
 
         # State management
-        self.state = SortingState.SCANNING
-        self.active_calibration: ZoneDetectionResult | None = None
+        self._state = SortingState.CALIBRATING
+        self.calibration: ZoneDetectionResult | None = None
         self.candidate_cube: CubeDetection | None = None
         self.candidate_frames_count = 0
         self.cooldown_start_time = 0.0
         self.current_action_phase = ''
         self._is_processing = False
 
+        self.get_logger().info(f'Initial state: {self._state.value}')
         self.get_logger().info('Sorting Coordinator Node ready and monitoring /camera/image_raw')
+
+    @property
+    def state(self) -> SortingState:
+        """Get the current sorting state."""
+        return self._state
+
+    @state.setter
+    def state(self, new_state: SortingState) -> None:
+        """Set a new sorting state and log on transition."""
+        if self._state != new_state:
+            self.get_logger().info(f'State changed: {self._state.value} -> {new_state.value}')
+            self._state = new_state
+
+    @property
+    def active_calibration(self) -> ZoneDetectionResult | None:
+        """Get current calibration for backward compatibility."""
+        return self.calibration
 
     def image_callback(self, msg: Image) -> None:
         if self._is_processing:
@@ -124,16 +143,24 @@ class SortingCoordinatorNode(Node):
 
         now = time.monotonic()
 
-        # 1. Calibrate workspace zones once, then lock
-        if self.active_calibration is None:
+        # 1. Calibrate workspace zones once if in CALIBRATING state
+        if self.state == SortingState.CALIBRATING:
             detected_zones = detect_zones(
                 frame,
                 field_width_mm=self.coord_mapper.paper_width_mm,
                 field_height_mm=self.coord_mapper.paper_height_mm,
             )
             if detected_zones is not None:
-                self.active_calibration = detected_zones
+                self.calibration = detected_zones
                 self.get_logger().info('Workspace zones detected and locked.')
+                self.state = SortingState.SCANNING
+            else:
+                if self.debug_image_pub.get_subscription_count() > 0:
+                    annotated = self._render_debug_overlay(frame, [])
+                    debug_msg = self.bridge.cv2_to_imgmsg(annotated, encoding='bgr8')
+                    debug_msg.header = msg.header
+                    self.debug_image_pub.publish(debug_msg)
+                return
 
         # 2. State Machine Execution
         if self.state == SortingState.COOLDOWN:
@@ -147,24 +174,21 @@ class SortingCoordinatorNode(Node):
         middle_detections: list[tuple[CubeDetection, str, float, float]] = []
 
         if self.state in (SortingState.SCANNING, SortingState.CONFIRMING):
+            assert self.calibration is not None
             raw_detections = self.detector.predict(frame)
 
             for det in raw_detections:
-                if self.active_calibration is not None:
-                    x_mm, y_mm = get_real_coordinates(
-                        det.center_px[0],
-                        det.center_px[1],
-                        self.active_calibration.homography_matrix,
-                    )
-                    zone = identify_zone(
-                        x_mm,
-                        y_mm,
-                        self.coord_mapper.paper_width_mm,
-                        self.coord_mapper.paper_height_mm,
-                    )
-                else:
-                    zone = 'unknown'
-                    x_mm, y_mm = 0.0, 0.0
+                x_mm, y_mm = get_real_coordinates(
+                    det.center_px[0],
+                    det.center_px[1],
+                    self.calibration.homography_matrix,
+                )
+                zone = identify_zone(
+                    x_mm,
+                    y_mm,
+                    self.coord_mapper.paper_width_mm,
+                    self.coord_mapper.paper_height_mm,
+                )
 
                 item = (det, zone, x_mm, y_mm)
                 detections_with_zones.append(item)
@@ -186,7 +210,7 @@ class SortingCoordinatorNode(Node):
             if middle_candidate is None and middle_detections:
                 middle_candidate = middle_detections[0]
 
-            if middle_candidate is not None and self.active_calibration is not None:
+            if middle_candidate is not None:
                 det, _, x_mm, y_mm = middle_candidate
                 if (
                     self.candidate_cube is not None
@@ -225,9 +249,7 @@ class SortingCoordinatorNode(Node):
         detections: list[tuple[CubeDetection, str, float, float]],
     ) -> np.ndarray:
         annotated = frame.copy()
-        if self.active_calibration is not None:
-            annotated = draw_zones(annotated, self.active_calibration)
-        else:
+        if self.state == SortingState.CALIBRATING:
             cv2.putText(
                 annotated,
                 'Calibrating: Looking for 3 Zones...',
@@ -237,6 +259,8 @@ class SortingCoordinatorNode(Node):
                 (0, 0, 255),
                 2,
             )
+        elif self.calibration is not None:
+            annotated = draw_zones(annotated, self.calibration)
 
         for det, zone, x_mm, y_mm in detections:
             self._draw_cube(annotated, det, zone, x_mm, y_mm)

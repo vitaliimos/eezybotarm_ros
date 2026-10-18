@@ -1,6 +1,6 @@
 plan_request_params:
   planning_pipeline: ompl
-  planner_id: RRTConnectkConfigDefault
+  planner_id: RRTConnect
   planning_attempts: 5
   planning_time: 1.0
   max_velocity_scaling_factor: 0.75
