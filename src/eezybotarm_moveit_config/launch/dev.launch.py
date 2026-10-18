@@ -19,7 +19,7 @@ def generate_launch_description():
     start_camera = LaunchConfiguration('start_camera')
     weights_path = LaunchConfiguration('weights_path')
 
-    default_weights_path = '/usr/share/models/model.engine'
+    default_weights_path = '/usr/share/models/model.onnx'
 
     return LaunchDescription([
         DeclareLaunchArgument(
