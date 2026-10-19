@@ -1,5 +1,4 @@
-import time
-
+from eezybotarm_control.workflow import run_workflow
 from eezybotarm_interfaces.action import PickObject
 from geometry_msgs.msg import Pose, PoseStamped
 import moveit.core.planning_interface  # noqa: F401
@@ -11,8 +10,34 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
 from shape_msgs.msg import SolidPrimitive
 
+DEFAULT_FRAME = 'base_link'
+END_EFFECTOR_LINK = 'ee_link'
+POSITION_TOLERANCE_M = 0.003
+# Planning workspace as (min_x, min_y, min_z, max_x, max_y, max_z), in metres.
+WORKSPACE = (-0.5, -0.5, -0.5, 0.5, 0.5, 0.5)
+
+
+def position_constraints(pose_stamped: PoseStamped) -> list[Constraints]:
+    """Build a constraint: end effector must be within a small sphere around the pose."""
+    sphere = SolidPrimitive(type=SolidPrimitive.SPHERE, dimensions=[POSITION_TOLERANCE_M])
+    sphere_pose = Pose()
+    sphere_pose.position = pose_stamped.pose.position
+    sphere_pose.orientation.w = 1.0
+
+    constraint = PositionConstraint()
+    constraint.header = pose_stamped.header
+    if not constraint.header.frame_id:
+        constraint.header.frame_id = DEFAULT_FRAME
+    constraint.link_name = END_EFFECTOR_LINK
+    constraint.weight = 1.0
+    constraint.constraint_region.primitives.append(sphere)
+    constraint.constraint_region.primitive_poses.append(sphere_pose)
+
+    return [Constraints(name='position_only', position_constraints=[constraint])]
+
 
 class PickAndPlaceActionServer(Node):
+    """Action server that picks an object at `target_pose` and places it at `place_pose`."""
 
     def __init__(self):
         super().__init__(
@@ -23,10 +48,8 @@ class PickAndPlaceActionServer(Node):
         self.moveit = MoveItPy(node_name='pick_and_place_moveit')
         self.arm = self.moveit.get_planning_component('arm')
         self.gripper = self.moveit.get_planning_component('hand')
-
         self._plan_params = PlanRequestParameters(self.moveit, '')
 
-        self._callback_group = ReentrantCallbackGroup()
         self._action_server = ActionServer(
             self,
             PickObject,
@@ -34,16 +57,15 @@ class PickAndPlaceActionServer(Node):
             execute_callback=self.execute_callback,
             goal_callback=self.goal_callback,
             cancel_callback=self.cancel_callback,
-            callback_group=self._callback_group,
+            callback_group=ReentrantCallbackGroup(),
         )
-
         self.get_logger().info('Pick-and-Place Action Server started!')
 
     def goal_callback(self, goal_request):
+        position = goal_request.target_pose.pose.position
         self.get_logger().info(
-            f"Goal received for object '{goal_request.object_class}' "
-            f'at X={goal_request.target_pose.pose.position.x:.2f}, '
-            f'Y={goal_request.target_pose.pose.position.y:.2f}'
+            f"Goal received for '{goal_request.object_class}' "
+            f'at X={position.x:.2f}, Y={position.y:.2f}'
         )
         return GoalResponse.ACCEPT
 
@@ -52,128 +74,49 @@ class PickAndPlaceActionServer(Node):
         return CancelResponse.ACCEPT
 
     async def execute_callback(self, goal_handle):
-        self.get_logger().info('Pick-and-Place started...')
-
-        started_at = time.monotonic()
-        target_pose = goal_handle.request.target_pose
+        pick_pose = goal_handle.request.target_pose
         place_pose = goal_handle.request.place_pose
-        feedback_msg = PickObject.Feedback()
-        result = PickObject.Result()
 
-        def fail(error_code: str):
-            goal_handle.abort()
-            result.success = False
-            result.execution_time = time.monotonic() - started_at
-            result.error_code = error_code
-            return result
+        steps = [
+            ('OPENING_GRIPPER', lambda: self._move_to_named(self.gripper, 'open')),
+            ('MOVING_TO_PRE_GRASP', lambda: self._move_to_pose(pick_pose)),
+            ('CLOSING_GRIPPER', lambda: self._move_to_named(self.gripper, 'close')),
+            ('MOVING_TO_POST_GRASP', lambda: self._move_to_named(self.arm, 'home')),
+            ('MOVING_TO_PLACE_POSITION', lambda: self._move_to_pose(place_pose)),
+            ('OPENING_GRIPPER', lambda: self._move_to_named(self.gripper, 'open')),
+            ('MOVING_TO_HOME', lambda: self._move_to_named(self.arm, 'home')),
+        ]
+        return run_workflow(steps, goal_handle, PickObject, self.get_logger())
 
-        feedback_msg.current_phase = 'OPENING_GRIPPER'
-        feedback_msg.progress_percentage = 0.0
-        goal_handle.publish_feedback(feedback_msg)
-        if not self._plan_and_execute(self.gripper, configuration_name='open'):
-            return fail('Failed to open gripper')
+    def _move_to_named(self, component: PlanningComponent, name: str) -> bool:
+        """Move to a named configuration from the SRDF (e.g. 'home', 'open')."""
+        self._prepare(component)
+        component.set_goal_state(configuration_name=name)
+        return self._plan_and_execute(component)
 
-        feedback_msg.current_phase = 'MOVING_TO_PRE_GRASP'
-        feedback_msg.progress_percentage = 25.0
-        goal_handle.publish_feedback(feedback_msg)
-        if not self._plan_and_execute(
-            self.arm,
-            constraints=self._position_only_constraints(target_pose, 'ee_link'),
-        ):
-            return fail('Failed to move arm to target pose')
-
-        feedback_msg.current_phase = 'CLOSING_GRIPPER'
-        feedback_msg.progress_percentage = 50.0
-        goal_handle.publish_feedback(feedback_msg)
-        if not self._plan_and_execute(self.gripper, configuration_name='close'):
-            return fail('Failed to close gripper')
-
-        feedback_msg.current_phase = 'MOVING_TO_POST_GRASP'
-        feedback_msg.progress_percentage = 75.0
-        goal_handle.publish_feedback(feedback_msg)
-        if not self._plan_and_execute(self.arm, configuration_name='home'):
-            return fail('Failed to move arm to post-grasp pose')
-
-        feedback_msg.current_phase = 'MOVING_TO_PLACE_POSITION'
-        feedback_msg.progress_percentage = 80.0
-        goal_handle.publish_feedback(feedback_msg)
-        if not self._plan_and_execute(
-            self.arm,
-            constraints=self._position_only_constraints(place_pose, 'ee_link'),
-        ):
-            return fail('Failed to move arm to place pose')
-
-        feedback_msg.current_phase = 'OPENING_GRIPPER'
-        feedback_msg.progress_percentage = 0.0
-        goal_handle.publish_feedback(feedback_msg)
-        if not self._plan_and_execute(self.gripper, configuration_name='open'):
-            return fail('Failed to open gripper')
-
-        feedback_msg.current_phase = 'COMPLETE'
-        feedback_msg.progress_percentage = 100.0
-        goal_handle.publish_feedback(feedback_msg)
-        goal_handle.succeed()
-        result.success = True
-        result.execution_time = time.monotonic() - started_at
-        result.error_code = ''
-        return result
+    def _move_to_pose(self, pose_stamped: PoseStamped) -> bool:
+        """Move the end effector to the given position."""
+        self._prepare(self.arm)
+        self.arm.set_goal_state(motion_plan_constraints=position_constraints(pose_stamped))
+        return self._plan_and_execute(self.arm)
 
     @staticmethod
-    def _position_only_constraints(
-        pose_stamped: PoseStamped,
-        link: str,
-        tolerance_m: float = 0.003,
-    ) -> list:
-        pc = PositionConstraint()
-        pc.header = pose_stamped.header
-        if not pc.header.frame_id:
-            pc.header.frame_id = 'base_link'
-        pc.weight = 1.0
-        pc.link_name = link
-        sphere = SolidPrimitive()
-        sphere.type = SolidPrimitive.SPHERE
-        sphere.dimensions = [tolerance_m]
-        region_pose = Pose()
-        region_pose.position = pose_stamped.pose.position
-        region_pose.orientation.w = 1.0
-        pc.constraint_region.primitives.append(sphere)
-        pc.constraint_region.primitive_poses.append(region_pose)
-        constraints = Constraints(name='position_only')
-        constraints.position_constraints.append(pc)
-        return [constraints]
-
-    def _plan_and_execute(
-        self,
-        component: PlanningComponent,
-        configuration_name: str = None,
-        pose_stamped: PoseStamped = None,
-        pose_link: str = None,
-        constraints: list = None,
-    ) -> bool:
+    def _prepare(component: PlanningComponent):
         component.set_start_state_to_current_state()
-        component.set_workspace(-0.5, -0.5, -0.5, 0.5, 0.5, 0.5)
+        component.set_workspace(*WORKSPACE)
 
-        if configuration_name:
-            component.set_goal_state(configuration_name=configuration_name)
-        elif constraints:
-            component.set_goal_state(motion_plan_constraints=constraints)
-        elif pose_stamped and pose_link:
-            component.set_goal_state(pose_stamped_msg=pose_stamped, pose_link=pose_link)
-        else:
-            self.get_logger().error('No goal specified for plan_and_execute')
-            return False
-
+    def _plan_and_execute(self, component: PlanningComponent) -> bool:
         response = component.plan(self._plan_params, planning_scene=None)
-        if response is None or response.error_code.val != MoveItErrorCodes.SUCCESS:
-            err_val = response.error_code.val if response else 'None'
-            self.get_logger().error(f'Planning failed with error code {err_val}')
+        if response is None:
+            self.get_logger().error('Planning failed: no response')
+            return False
+        if response.error_code.val != MoveItErrorCodes.SUCCESS:
+            self.get_logger().error(f'Planning failed with error code {response.error_code.val}')
             return False
 
-        success = self.moveit.execute(response.trajectory, controllers=[])
-        if not success:
+        if not self.moveit.execute(response.trajectory, controllers=[]):
             self.get_logger().error('Execution failed')
             return False
-
         return True
 
 
