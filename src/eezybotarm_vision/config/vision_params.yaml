@@ -25,3 +25,4 @@ sorting_coordinator_node:
     stable_frames_required: 8
     cooldown_duration_sec: 2.5
     action_name: "pick_and_place"
+    debug_image_jpeg_quality: 80
