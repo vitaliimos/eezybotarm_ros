@@ -22,9 +22,9 @@
                   <param name="initial_value">${initial_positions['waist_joint']}</param>
                 </state_interface>
                 <param name="pca_channel">0</param>
-                <param name="rad_min">-0.7854</param>
-                <param name="rad_max">0.7854</param>
-                <param name="us_min">500</param>
+                <param name="rad_min">-1.5708</param>
+                <param name="rad_max">1.5708</param>
+                <param name="us_min">600</param>
                 <param name="us_max">2400</param>
                 <param name="gear_ratio">2.0</param>
                 <param name="invert_direction">true</param>
@@ -35,9 +35,9 @@
                   <param name="initial_value">${initial_positions['shoulder_joint']}</param>
                 </state_interface>
                 <param name="pca_channel">1</param>
-                <param name="rad_min">-0.8000</param>
-                <param name="rad_max">0.3500</param>
-                <param name="us_min">500</param>
+                <param name="rad_min">-1.5708</param>
+                <param name="rad_max">1.5708</param>
+                <param name="us_min">600</param>
                 <param name="us_max">2400</param>
             </joint>
             <joint name="elbow_joint">
@@ -46,9 +46,9 @@
                   <param name="initial_value">${initial_positions['elbow_joint']}</param>
                 </state_interface>
                 <param name="pca_channel">2</param>
-                <param name="rad_min">-0.7700</param>
-                <param name="rad_max">0.4500</param>
-                <param name="us_min">500</param>
+                <param name="rad_min">-1.5708</param>
+                <param name="rad_max">1.5708</param>
+                <param name="us_min">600</param>
                 <param name="us_max">2400</param>
                 <param name="invert_direction">true</param>
             </joint>
@@ -60,7 +60,7 @@
                 <param name="pca_channel">3</param>
                 <param name="rad_min">-0.1500</param>
                 <param name="rad_max">0.6500</param>
-                <param name="us_min">500</param>
+                <param name="us_min">600</param>
                 <param name="us_max">2400</param>
             </joint>
 
