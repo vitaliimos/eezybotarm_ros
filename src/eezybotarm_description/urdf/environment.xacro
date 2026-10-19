@@ -1,8 +1,11 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:macro name="environment" params="parent:=base_link">
+    <xacro:property name="env_file" value="$(find eezybotarm_description)/config/environment.yaml" />
+    <xacro:property name="env" value="${xacro.load_yaml(env_file)['/**']['ros__parameters']}" />
+
     <!-- Base Mounting Board (500 x 300 x 18 mm) -->
-    <!-- Base link is 40mm from the rear edge along +X. Center is at X = -0.040 + 0.250 = +0.210 m -->
+    <!-- Waist joint center is 63mm from the rear edge. Center X = -0.063 + 0.250 = +0.187 m -->
     <link name="base_board">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -24,17 +27,15 @@
     <joint name="${parent}_to_base_board" type="fixed">
       <parent link="${parent}"/>
       <child link="base_board"/>
-      <origin xyz="0.210 0.0 -0.009" rpy="0 0 0"/>
+      <origin xyz="0.187 0.0 -0.009" rpy="0 0 0"/>
     </joint>
 
-    <!-- Elevated Sorting Work Table (200 x 300 x 95 mm) -->
-    <!-- Front edge of board is at X = +0.460 m. Table is 110mm from front edge, depth is 200mm. -->
-    <!-- Table spans X in [+0.150, +0.350], center is at X = +0.250 m, Z top at +0.095 m (center at Z = 0.0475 m) -->
+    <!-- Work Table / Workspace (depth along X, width along Y, height along Z) -->
     <link name="work_table">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="0.200 0.300 0.095"/>
+          <box size="${env['table_depth_m']} ${env['table_width_m']} ${env['table_z_m']}"/>
         </geometry>
         <material name="table_surface">
           <color rgba="0.94 0.94 0.96 1.0"/>
@@ -43,7 +44,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <box size="0.200 0.300 0.095"/>
+          <box size="${env['table_depth_m']} ${env['table_width_m']} ${env['table_z_m']}"/>
         </geometry>
       </collision>
     </link>
@@ -51,16 +52,16 @@
     <joint name="${parent}_to_work_table" type="fixed">
       <parent link="${parent}"/>
       <child link="work_table"/>
-      <origin xyz="0.250 0.0 0.0475" rpy="0 0 0"/>
+      <origin xyz="${env['robot_x_offset_m'] + env['table_depth_m']/2.0} ${env.get('robot_y_offset_m', 0.0)} ${env['table_z_m']/2.0}" rpy="0 0 0"/>
     </joint>
 
-    <!-- Camera Stand (height 300 mm, base width ~120 mm) -->
+    <!-- Camera Stand (height 300 mm, triangular base width 125 mm along front edge) -->
     <!-- Located at X = +0.400 m, Y = 0.0, Z center at +0.150 m -->
     <link name="camera_stand">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <cylinder radius="0.060" length="0.300"/>
+          <cylinder radius="0.0625" length="0.300"/>
         </geometry>
         <material name="stand_green">
           <color rgba="0.15 0.30 0.15 1.0"/>
@@ -69,7 +70,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <cylinder radius="0.060" length="0.300"/>
+          <cylinder radius="0.0625" length="0.300"/>
         </geometry>
       </collision>
     </link>

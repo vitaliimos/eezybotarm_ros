@@ -35,8 +35,8 @@ def test_identify_zone():
 def test_coordinate_mapper():
     """Verify mapping from paper mm to robot base_link xyz."""
     mapper = CoordinateMapper(
-        paper_width_mm=300.0,
-        paper_height_mm=200.0,
+        table_width_m=0.300,
+        table_depth_m=0.200,
         robot_x_offset_m=0.12,
         robot_y_offset_m=0.0,
         table_z_m=0.02,

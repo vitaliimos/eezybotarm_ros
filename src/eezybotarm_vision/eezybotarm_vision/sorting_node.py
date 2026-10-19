@@ -10,6 +10,7 @@ import numpy as np
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import Image
 
 from .coordinate_mapper import CoordinateMapper
@@ -34,26 +35,29 @@ class SortingState(Enum):
 class SortingCoordinatorNode(Node):
     """Orchestrate workspace calibration, cube detection, and pick-and-place actions."""
 
-    def __init__(self):
-        super().__init__('sorting_coordinator_node')
+    def __init__(self, **kwargs):
+        super().__init__('sorting_coordinator_node', **kwargs)
 
         self.bridge = CvBridge()
 
         default_model_path = '/usr/share/models/model.engine'
 
+        # CV parameters
         self.declare_parameter('weights_path', default_model_path)
-        self.declare_parameter('conf_threshold', 0.5)
-        self.declare_parameter('iou_threshold', 0.45)
-        self.declare_parameter('stable_frames_required', 8)
-        self.declare_parameter('cooldown_duration_sec', 2.5)
-        self.declare_parameter('paper_width_mm', 300.0)
-        self.declare_parameter('paper_height_mm', 200.0)
-        self.declare_parameter('robot_x_offset_m', 0.150)
-        self.declare_parameter('robot_y_offset_m', 0.0)
-        self.declare_parameter('table_z_m', 0.095)
-        self.declare_parameter('cube_height_m', 0.025)
-        self.declare_parameter('debug_image_jpeg_quality', 80)
-        self.declare_parameter('action_name', 'pick_and_place')
+        self.declare_parameter('conf_threshold', Parameter.Type.DOUBLE)
+        self.declare_parameter('iou_threshold', Parameter.Type.DOUBLE)
+        self.declare_parameter('stable_frames_required', Parameter.Type.INTEGER)
+        self.declare_parameter('cooldown_duration_sec', Parameter.Type.DOUBLE)
+        self.declare_parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER)
+        self.declare_parameter('action_name', Parameter.Type.STRING)
+
+        # Physical workspace parameters (must be supplied via environment.yaml / launch)
+        self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('table_depth_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('robot_x_offset_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
 
         weights_path = self.get_parameter('weights_path').value or default_model_path
         if not os.path.exists(weights_path) and os.path.exists(default_model_path):
@@ -79,8 +83,8 @@ class SortingCoordinatorNode(Node):
             raise
 
         self.coord_mapper = CoordinateMapper(
-            paper_width_mm=self.get_parameter('paper_width_mm').value,
-            paper_height_mm=self.get_parameter('paper_height_mm').value,
+            table_width_m=self.get_parameter('table_width_m').value,
+            table_depth_m=self.get_parameter('table_depth_m').value,
             robot_x_offset_m=self.get_parameter('robot_x_offset_m').value,
             robot_y_offset_m=self.get_parameter('robot_y_offset_m').value,
             table_z_m=self.get_parameter('table_z_m').value,

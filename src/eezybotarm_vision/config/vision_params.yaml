@@ -25,8 +25,3 @@ sorting_coordinator_node:
     stable_frames_required: 8
     cooldown_duration_sec: 2.5
     action_name: "pick_and_place"
-    paper_width_mm: 300.0
-    paper_height_mm: 200.0
-    robot_x_offset_m: 0.150
-    robot_y_offset_m: 0.0
-    table_z_m: 0.095

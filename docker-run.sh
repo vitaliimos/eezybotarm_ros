@@ -24,6 +24,11 @@ DOCKER_ARGS=(
     -e "QT_X11_NO_MITSHM=1"
 )
 
+# Load environment variables from .env if present
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    DOCKER_ARGS+=(--env-file "$SCRIPT_DIR/.env")
+fi
+
 # Allocate TTY if connected to a terminal
 if [ -t 0 ]; then
     DOCKER_ARGS+=(-t)

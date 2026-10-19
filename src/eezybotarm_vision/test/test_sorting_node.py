@@ -9,6 +9,20 @@ import numpy as np
 import pytest
 import rclpy
 from sensor_msgs.msg import Image
+from rclpy.parameter import Parameter
+from rclpy.exceptions import ParameterUninitializedException
+
+
+def _make_test_node(**kwargs) -> SortingCoordinatorNode:
+    params = [
+        Parameter('table_width_m', Parameter.Type.DOUBLE, 0.300),
+        Parameter('table_depth_m', Parameter.Type.DOUBLE, 0.200),
+        Parameter('robot_x_offset_m', Parameter.Type.DOUBLE, 0.127),
+        Parameter('robot_y_offset_m', Parameter.Type.DOUBLE, 0.0),
+        Parameter('table_z_m', Parameter.Type.DOUBLE, 0.075),
+        Parameter('cube_height_m', Parameter.Type.DOUBLE, 0.025),
+    ]
+    return SortingCoordinatorNode(parameter_overrides=params, **kwargs)
 
 
 @pytest.fixture(autouse=True)
@@ -44,9 +58,16 @@ def _make_cube(
 
 
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
+def test_missing_required_parameters_raises(mock_detector):
+    """Verify that omitting required workspace parameters raises ParameterUninitializedException."""
+    with pytest.raises(ParameterUninitializedException):
+        SortingCoordinatorNode()
+
+
+@patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_initial_state_and_properties(mock_detector):
     """Verify initial state is CALIBRATING and properties work as expected."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         assert node.state == SortingState.CALIBRATING
         assert node.calibration is None
@@ -60,7 +81,7 @@ def test_initial_state_and_properties(mock_detector):
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_state_change_logging(mock_detector):
     """Verify state setter logs changes only when the state actually changes."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         with patch.object(node.get_logger(), 'info') as mock_log:
             node.state = SortingState.CALIBRATING
@@ -89,7 +110,7 @@ def test_handle_image_calibrating_success(mock_detector, mock_detect_zones):
     )
     mock_detect_zones.return_value = mock_calib
 
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         assert node.state == SortingState.CALIBRATING
         node._handle_image(_create_mock_image_msg())
@@ -107,7 +128,7 @@ def test_handle_image_calibrating_failure_bypasses_yolo(mock_detector, mock_dete
     """Verify node stays in CALIBRATING without calling YOLO if zones not detected."""
     mock_detect_zones.return_value = None
 
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         assert node.state == SortingState.CALIBRATING
         node._handle_image(_create_mock_image_msg())
@@ -122,7 +143,7 @@ def test_handle_image_calibrating_failure_bypasses_yolo(mock_detector, mock_dete
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_convert_image(mock_detector):
     """Verify _convert_image properly handles valid and invalid images."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         valid_msg = _create_mock_image_msg()
         frame = node._convert_image(valid_msg)
@@ -141,7 +162,7 @@ def test_convert_image(mock_detector):
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_handle_cooldown(mock_detector):
     """Verify cooldown countdown and transition to SCANNING."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         node.state = SortingState.COOLDOWN
         node.cooldown_start_time = 100.0
@@ -168,7 +189,7 @@ def test_handle_cooldown(mock_detector):
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_is_cube_match(mock_detector):
     """Verify cube matching based on class ID and pixel distance."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         base_cube = _make_cube(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
         same_cube = _make_cube(0, 'green_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
@@ -185,7 +206,7 @@ def test_is_cube_match(mock_detector):
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_update_candidate_tracking(mock_detector):
     """Verify candidate stability counting, dispatching, and resetting."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         node.stable_frames_required = 2
         det = _make_cube(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
@@ -215,7 +236,7 @@ def test_update_candidate_tracking(mock_detector):
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_publish_debug_image(mock_detector):
     """Verify debug image is published via visualizer."""
-    node = SortingCoordinatorNode()
+    node = _make_test_node()
     try:
         dummy_frame = np.zeros((50, 50, 3), dtype=np.uint8)
         header = MagicMock()
