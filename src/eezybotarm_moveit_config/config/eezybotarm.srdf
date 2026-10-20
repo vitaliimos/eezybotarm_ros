@@ -21,6 +21,11 @@
         <joint name="shoulder_joint" value="0"/>
         <joint name="waist_joint" value="0"/>
     </group_state>
+    <group_state name="standby" group="arm">
+        <joint name="elbow_joint" value="-0.25"/>
+        <joint name="shoulder_joint" value="-0.45"/>
+        <joint name="waist_joint" value="-1.2"/>
+    </group_state>
     <group_state name="open" group="hand">
         <joint name="finger_left_joint" value="0.65"/>
     </group_state>

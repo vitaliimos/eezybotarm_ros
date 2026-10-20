@@ -14,6 +14,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 
 add_library(eezybotarm_hardware SHARED
   src/eezybotarm_hardware.cpp
+  src/pca9685.cpp
 )
 
 target_include_directories(eezybotarm_hardware PUBLIC

@@ -1,10 +1,9 @@
 #pragma once
 
-#include <array>
-#include <cstdint>
 #include <string>
 #include <vector>
 
+#include "eezybotarm_hardware/pca9685.hpp"
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -30,6 +29,12 @@ public:
   hardware_interface::CallbackReturn on_deactivate(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  hardware_interface::CallbackReturn on_shutdown(
+    const rclcpp_lifecycle::State & previous_state) override;
+
+  hardware_interface::CallbackReturn on_error(
+    const rclcpp_lifecycle::State & previous_state) override;
+
   std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
   std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
@@ -39,43 +44,28 @@ public:
   hardware_interface::return_type write(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
-private:
-  struct ServoConfig
+  struct Servo
   {
-    int channel = -1;
+    int channel = 0;
     double rad_min = 0.0;
     double rad_max = 0.0;
-    double us_min = 500.0;
-    double us_max = 2500.0;
+    double us_min = 0.0;
+    double us_max = 0.0;
+    double gear_ratio = 1.0;
+    bool invert = false;
   };
 
-  std::string i2c_bus_ = "/dev/i2c-7";
-  int i2c_address_ = 0x60;
-  double pwm_frequency_ = 50.0;
-  int i2c_fd_ = -1;
+private:
+  std::string i2c_bus_;
+  int i2c_address_ = 0;
+  double pwm_frequency_ = 0.0;
 
-  int joint_base_idx_ = -1;
-  int joint_shoulder_idx_ = -1;
-  int joint_elbow_idx_ = -1;
-  int joint_gripper_idx_ = -1;
+  std::vector<Servo> servos_;
+  std::vector<double> hw_commands_;
+  std::vector<double> hw_states_;
 
-  std::vector<double> hw_commands_position_;
-  std::vector<double> hw_states_position_;
-
-  std::vector<double> gear_ratio_;
-  std::vector<bool> invert_direction_;
-  std::vector<ServoConfig> servo_config_;
-
-  std::array<std::uint16_t, 16> pwm_on_ticks_{};
-  std::array<std::uint16_t, 16> pwm_off_ticks_{};
-
-  bool open_i2c();
-  void close_i2c();
-  bool init_pca9685();
-  bool write_pca9685_all_channels();
-
-  double joint_to_actuator(std::size_t joint_idx, double joint_value) const;
-  double rad_to_pulse_us(std::size_t joint_idx, double actuator_rad) const;
+  Pca9685 pca_;
+  int write_failures_ = 0;
 };
 
 }  // namespace eezybotarm_hardware

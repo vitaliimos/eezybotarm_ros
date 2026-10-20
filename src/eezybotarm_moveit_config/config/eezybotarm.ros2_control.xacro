@@ -58,8 +58,8 @@
                   <param name="initial_value">${initial_positions['finger_left_joint']}</param>
                 </state_interface>
                 <param name="pca_channel">3</param>
-                <param name="rad_min">-0.1500</param>
-                <param name="rad_max">0.6500</param>
+                <param name="rad_min">-1.5708</param>
+                <param name="rad_max">1.5708</param>
                 <param name="us_min">600</param>
                 <param name="us_max">2400</param>
             </joint>

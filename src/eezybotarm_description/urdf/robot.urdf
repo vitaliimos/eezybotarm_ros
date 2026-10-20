@@ -37,7 +37,7 @@
     <child link="turret_link" />
     <axis xyz="0 0 1" />
     <limit effort="0" velocity="0"
-      lower="-0.7854" upper="0.7854"/>
+      lower="-1.2217" upper="1.2217"/>
   </joint>
 
 <!--HIP-->
@@ -103,7 +103,7 @@
     <parent link="virtual_parallelogram_link" />
     <child link="forearm_link" />
     <axis xyz="0 1 0" />
-    <limit effort="0" velocity="0" lower="-0.2" upper="0.85"/>
+    <limit effort="0" velocity="0" lower="-0.25" upper="0.85"/>
   </joint>
 
 <!-- ELBOW -->
