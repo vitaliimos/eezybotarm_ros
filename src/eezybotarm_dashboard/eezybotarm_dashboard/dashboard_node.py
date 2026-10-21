@@ -304,7 +304,7 @@ def build_dashboard_ui(node: EezybotDashboardNode):
             heartbeat_badge = ui.badge('DDS: OK', color='green').classes('text-sm px-2 py-1')
 
     # Main layout
-    with ui.row().classes('w-full p-4 gap-4 items-start'):
+    with ui.row().classes('w-full max-w-7xl mx-auto p-4 gap-4 items-start'):
         # LEFT COLUMN: Camera Feed and Telemetry
         with ui.column().classes('flex-1 gap-4'):
             # Camera Card
@@ -318,8 +318,10 @@ def build_dashboard_ui(node: EezybotDashboardNode):
 
                 # Video display via standard MJPEG endpoint
                 video_url = f'/stream/video?type={stream_select.value}'
-                video_img = ui.image(video_url).classes(
-                    'w-full max-h-96 object-contain rounded-lg border border-gray-300 shadow-inner bg-black'
+                video_img = (
+                    ui.image(video_url)
+                    .props('fit=contain :ratio="4/3"')
+                    .classes('w-full aspect-[4/3] rounded-lg border border-gray-300 shadow-inner bg-black')
                 )
                 stream_select.on_value_change(
                     lambda e: video_img.set_source(f'/stream/video?type={e.value}&t={time.time()}')
