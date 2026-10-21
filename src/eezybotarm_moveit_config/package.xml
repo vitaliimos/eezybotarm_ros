@@ -47,6 +47,7 @@
   <exec_depend>eezybotarm_hardware</exec_depend>
   <exec_depend>eezybotarm_control</exec_depend>
   <exec_depend>eezybotarm_vision</exec_depend>
+  <exec_depend>eezybotarm_dashboard</exec_depend>
 
   <export>
       <build_type>ament_cmake</build_type>

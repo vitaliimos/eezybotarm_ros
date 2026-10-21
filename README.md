@@ -99,35 +99,35 @@ source install/setup.bash
 
 ## Running the Robot
 
-### 1. Simulation / Demo Mode (Mock Hardware + RViz GUI)
+### 1. Local Development & Simulation (`local.launch.py`)
 
-Use this mode for local testing without physical hardware connected. It launches mock joint hardware, MoveIt 2 planning pipelines, the pick-and-place action server, and the RViz GUI:
-
-```bash
-ros2 launch eezybotarm_moveit_config demo.launch.py
-```
-
-### 2. Production Mode (Real Hardware, Headless)
-
-Use this mode on the actual robot hardware. It launches the real `ros2_control` PCA9685 I2C driver, robot state publisher, MoveGroup, and the pick-and-place server without launching a graphical user interface:
+Use this mode for local development and testing without physical hardware connected. By default, it launches mock joint hardware, the mock camera (`image_publisher`), MoveIt 2 planning pipelines, the pick-and-place action server, the vision sorting node (using the workspace's `model.onnx`), RViz GUI, and the NiceGUI web dashboard (port `8080`):
 
 ```bash
-ros2 launch eezybotarm_moveit_config production.launch.py i2c_bus:=/dev/i2c-1 i2c_address:=0x40
+./docker-run.sh ros2 launch eezybotarm_moveit_config local.launch.py
 ```
 
 Available launch arguments:
-* `i2c_bus` (default: `/dev/i2c-1`): Path to the Linux I2C device.
-* `i2c_address` (default: `0x40`): I2C hex address of the PCA9685 driver board.
-* `pwm_frequency` (default: `50`): Servo PWM frequency in Hz.
-* `use_rviz` (default: `false`): Set to `true` if you wish to attach an RViz window to the production instance.
+* `use_mock_hardware` (default: `true`): Use mock hardware interfaces.
+* `use_mock_camera` (default: `true`): Use `image_publisher` mock camera instead of a physical USB camera.
+* `use_rviz` (default: `true`): Launch RViz for visualization and planning.
+* `start_dashboard` (default: `true`): Launch the NiceGUI web dashboard on port `8080`.
+* `weights_path` (default: `<eezybotarm_vision>/models/model.onnx`): Path to YOLO weights file.
 
-### 3. Development / Hardware Test Mode with RViz
+### 2. Target Hardware on NVIDIA Jetson (`jetson.launch.py`)
 
-If you are connected to the physical robot and want visual monitoring in RViz simultaneously:
+Use this mode on the actual robot hardware (auto-started at boot via `eezybotarm.service` on Yocto images). It runs headless with the real `ros2_control` PCA9685 I2C driver and physical USB camera:
 
 ```bash
-ros2 launch eezybotarm_moveit_config dev.launch.py i2c_bus:=/dev/i2c-1
+ros2 launch eezybotarm_moveit_config jetson.launch.py profile:=prod
 ```
+
+Available launch arguments:
+* `profile` (default: `prod`, choices: `prod`, `dev`): Selects `/usr/share/models/model.engine` (TensorRT) for `prod` or `/usr/share/models/model.onnx` (ONNX Runtime) for `dev`.
+* `i2c_bus` (default: `/dev/i2c-7`): Path to the Linux I2C device.
+* `i2c_address` (default: `0x60`): I2C hex address of the PCA9685 driver board.
+* `pwm_frequency` (default: `50`): Servo PWM frequency in Hz.
+* `weights_path` (default: determined by `profile`): Explicit override for YOLO model path.
 
 ---
 

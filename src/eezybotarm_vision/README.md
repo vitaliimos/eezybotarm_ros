@@ -53,9 +53,7 @@ The Yocto image automatically handles this on first boot:
     use_mock_camera:=true gui:=true
 ```
 
-### Launch Complete Sorting Pipeline (Mock Hardware + Mock Camera + RViz)
+### Launch Complete Local Stack (Mock Hardware + Mock Camera + RViz + Dashboard)
 ```bash
-./docker-run.sh ros2 launch eezybotarm_vision sorting_pipeline.launch.py \
-    weights_path:=/workspaces/src/eezybotarm_vision/models/model.engine \
-    use_mock_hardware:=true use_mock_camera:=true use_rviz:=true
+./docker-run.sh ros2 launch eezybotarm_moveit_config local.launch.py
 ```

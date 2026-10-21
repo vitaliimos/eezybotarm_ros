@@ -13,6 +13,10 @@ def generate_launch_description():
     dashboard_launch_file = PathJoinSubstitution(
         [FindPackageShare('eezybotarm_dashboard'), 'launch', 'dashboard.launch.py']
     )
+    default_weights_path = PathJoinSubstitution(
+        [FindPackageShare('eezybotarm_vision'), 'models', 'model.onnx']
+    )
+
     use_mock_hardware = LaunchConfiguration('use_mock_hardware')
     i2c_bus = LaunchConfiguration('i2c_bus')
     i2c_address = LaunchConfiguration('i2c_address')
@@ -24,8 +28,6 @@ def generate_launch_description():
     weights_path = LaunchConfiguration('weights_path')
     start_dashboard = LaunchConfiguration('start_dashboard')
 
-    default_weights_path = '/usr/share/models/model.onnx'
-
     dashboard_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(dashboard_launch_file),
         condition=IfCondition(start_dashboard),
@@ -34,8 +36,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'use_mock_hardware',
-            default_value='false',
-            description='Use mock hardware interfaces instead of real hardware',
+            default_value='true',
+            description='Use mock hardware interfaces for local development',
         ),
         DeclareLaunchArgument(
             'i2c_bus',
@@ -55,7 +57,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'use_rviz',
             default_value='true',
-            description='Launch RViz for visualization and debugging/planning',
+            description='Launch RViz for visualization and planning',
         ),
         DeclareLaunchArgument(
             'use_vision',
@@ -64,8 +66,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'use_mock_camera',
-            default_value='false',
-            description='Use mock camera instead of real USB camera',
+            default_value='true',
+            description='Use image_publisher mock camera instead of physical USB camera',
         ),
         DeclareLaunchArgument(
             'start_camera',
@@ -75,12 +77,12 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'weights_path',
             default_value=default_weights_path,
-            description='Path to YOLO weights file',
+            description='Path to YOLO ONNX weights file in eezybotarm_vision',
         ),
         DeclareLaunchArgument(
             'start_dashboard',
-            default_value='false',
-            description='Whether to start the NiceGUI web dashboard alongside dev stack',
+            default_value='true',
+            description='Whether to start the NiceGUI web dashboard alongside local stack',
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(bringup),
