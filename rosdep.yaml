@@ -27,3 +27,14 @@ python3-tensorrt:
       packages: [python3-tensorrt]
   oe:
     recipes: [python3-tensorrt]
+
+cuda-cudart:
+  ubuntu:
+    pip:
+      packages: [nvidia-cuda-runtime]
+  debian:
+    pip:
+      packages: [nvidia-cuda-runtime]
+  oe:
+    recipes: [cuda-cudart]
+

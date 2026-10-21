@@ -67,7 +67,7 @@ class TrtRunner:
                 pass
 
         for path in glob.glob(
-            '/usr/local/lib/python3*/dist-packages/nvidia/cuda_runtime/lib/libcudart.so*'
+            '/usr/local/lib/python3*/dist-packages/nvidia/*/lib/libcudart.so*'
         ):
             try:
                 return ctypes.CDLL(path)

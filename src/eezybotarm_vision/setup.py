@@ -20,6 +20,8 @@ setup(
     ],
     install_requires=[
         'setuptools',
+        'onnxruntime',
+        'tensorrt',
     ],
     zip_safe=True,
     maintainer='vitalii',

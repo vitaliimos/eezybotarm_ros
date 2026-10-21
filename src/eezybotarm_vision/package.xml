@@ -10,6 +10,7 @@
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>python3-numpy</depend>
   <depend>python3-opencv</depend>
@@ -19,6 +20,9 @@
   <exec_depend>image_publisher</exec_depend>
   <exec_depend>rqt_image_view</exec_depend>
   <exec_depend>compressed_image_transport</exec_depend>
+  <exec_depend>python3-onnxruntime</exec_depend>
+  <exec_depend>python3-tensorrt</exec_depend>
+  <exec_depend>cuda-cudart</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

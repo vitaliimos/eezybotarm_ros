@@ -18,7 +18,7 @@ DOCKER_ARGS=(
     -i
     --network=host
     -v "$SCRIPT_DIR:/eezybot_ros"
-    -w /workspaces
+    -w /eezybot_ros
     -u "$(id -u):$(id -g)"
     -e "DISPLAY=${DISPLAY:-}"
     -e "QT_X11_NO_MITSHM=1"
@@ -64,4 +64,4 @@ case "${1:-}" in
 esac
 
 exec docker run "${DOCKER_ARGS[@]}" "$IMAGE_NAME" bash -c \
-    'source /opt/ros/jazzy/setup.bash && if [ -f /workspaces/install/setup.bash ]; then source /workspaces/install/setup.bash; fi && exec "$@"' _ "${CMD_ARGS[@]}"
+    'source /opt/ros/jazzy/setup.bash && if [ -f /eezybot_ros/install/setup.bash ]; then source /eezybot_ros/install/setup.bash; fi && exec "$@"' _ "${CMD_ARGS[@]}"
