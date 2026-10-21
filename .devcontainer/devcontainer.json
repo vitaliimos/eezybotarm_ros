@@ -7,19 +7,22 @@
         "--gpus", "all",
         "-v", "/dev:/dev",
         "--privileged",
-        "--network=host"
+        "--network=host",
+        "--ipc=host"
     ],
     "mounts": [
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
     ],
     "containerEnv": {
         "DISPLAY": "${localEnv:DISPLAY}",
+        "XDG_RUNTIME_DIR": "/tmp/runtime-ubuntu",
         "QT_X11_NO_MITSHM": "1"
     },
-    "postCreateCommand": "(test -f /etc/ros/rosdep/sources.list.d/20-default.list || sudo rosdep init) && rosdep update && rosdep install --from-paths src --ignore-src -r -y",
+    "initializeCommand": "xhost +si:localuser:root; xhost +si:localuser:$USER",
+    "postCreateCommand": "(test -f /etc/ros/rosdep/sources.list.d/20-default.list || sudo rosdep init) && rosdep update && rosdep install --from-paths src --ignore-src -r -y || echo \"source /opt/ros/jazzy/setup.bash\" >> ~/.bashrc'",
     "remoteUser": "ubuntu",
-    "workspaceFolder": "/workspaces",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces,type=bind",
+    "workspaceFolder": "/eezybot_ros",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/eezybot_ros,type=bind",
     "customizations": {
         "vscode": {
             "settings": {

@@ -3,7 +3,7 @@
 <package format="3">
   <name>eezybotarm_description</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Kinematic description, URDF xacro models, and meshes for EezyBotArm</description>
   <maintainer email="mostipaka.vitalii@gmail.com">Vitalii Mostipaka</maintainer>
   <license>MIT</license>
   <license>CC-BY-NC-3.0</license>

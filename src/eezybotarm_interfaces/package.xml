@@ -3,7 +3,7 @@
 <package format="3">
   <name>eezybotarm_interfaces</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>ROS 2 message and action interface definitions for EezyBotArm</description>
   <maintainer email="mostipaka.vitalii@gmail.com">Vitalii Mostipaka</maintainer>
   <license>MIT</license>
 

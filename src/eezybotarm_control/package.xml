@@ -3,7 +3,7 @@
 <package format="3">
   <name>eezybotarm_control</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>MoveIt 2 motion planning and pick-and-place action server for EezyBotArm</description>
   <maintainer email="mostipaka.vitalii@gmail.com">Vitalii Mostipaka</maintainer>
   <license>MIT</license>
 

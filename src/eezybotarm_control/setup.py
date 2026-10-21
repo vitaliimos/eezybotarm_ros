@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='ubuntu',
-    maintainer_email='ubuntu@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='vitalii',
+    maintainer_email='mostipaka.vitalii@gmail.com',
+    description='MoveIt 2 motion planning and pick-and-place action server for EezyBotArm',
+    license='MIT',
     extras_require={
         'test': [
             'pytest',

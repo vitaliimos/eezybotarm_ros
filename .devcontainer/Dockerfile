@@ -44,17 +44,18 @@ RUN apt-get update \
         ros-${ROS_DISTRO}-warehouse-ros \
         ros-${ROS_DISTRO}-xacro \
         ros-${ROS_DISTRO}-v4l2-camera \
+        ros-${ROS_DISTRO}-image-transport-plugins \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed "setuptools<70" "numpy<2" onnxruntime tensorrt nvidia-cuda-runtime-cu12
 
-RUN mkdir -p /workspaces \
-    && chown -R ${USERNAME}:${USERNAME} /workspaces
+RUN mkdir -p /eezybot_ros \
+    && chown -R ${USERNAME}:${USERNAME} /eezybot_ros
 
 USER ${USERNAME}
-WORKDIR /workspaces
+WORKDIR /eezybot_ros
 
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/${USERNAME}/.bashrc \
     && echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/${USERNAME}/.bashrc

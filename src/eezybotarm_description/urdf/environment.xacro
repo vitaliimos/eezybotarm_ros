@@ -104,7 +104,7 @@
     <joint name="camera_stand_to_camera_link" type="fixed">
       <parent link="camera_stand"/>
       <child link="camera_link"/>
-      <origin xyz="0.0 0.0 0.150" rpy="0.0 0.9828 3.14159"/>
+      <origin xyz="0.0 0.0 0.150" rpy="0.0 -0.9828 3.14159"/>
     </joint>
 
     <!-- Camera Optical Frame (ROS Standard: Z forward, X right, Y down) -->
