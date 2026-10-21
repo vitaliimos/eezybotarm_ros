@@ -1,7 +1,8 @@
 {
     "name": "ROS 2 Jazzy Eezybotarm Dev",
     "build": {
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        "context": ".."
     },
     "runArgs": [
         "--gpus", "all",

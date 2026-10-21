@@ -52,17 +52,19 @@ If developing natively on Ubuntu 24.04 with ROS 2 Jazzy:
    sudo apt install -y python3-colcon-common-extensions python3-rosdep python3-vcstool
    ```
 
-2. **Initialize rosdep** (if not already done):
+2. **Initialize rosdep and register local project rules** (if not already done):
    ```bash
    test -f /etc/ros/rosdep/sources.list.d/20-default.list || sudo rosdep init
+   echo "yaml file://$(pwd)/rosdep.yaml" | sudo tee /etc/ros/rosdep/sources.list.d/50-eeazybot.list
    rosdep update
    ```
 
 3. **Install Package Dependencies**:
    From the repository root:
    ```bash
-   rosdep install --from-paths src --ignore-src -r -y
+   PIP_BREAK_SYSTEM_PACKAGES=1 rosdep install --from-paths src --ignore-src -r -y
    ```
+   *(Note: `PIP_BREAK_SYSTEM_PACKAGES=1` is required on Ubuntu 24.04 / Python 3.12+ because rosdep installs pip-based dependencies globally).*
 
 4. **Hardware Access Setup (for physical I2C)**:
    Add your user to the `i2c` group to access the hardware interface without root privileges:

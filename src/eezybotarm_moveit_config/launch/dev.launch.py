@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
@@ -8,6 +9,9 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     bringup = PathJoinSubstitution(
         [FindPackageShare('eezybotarm_moveit_config'), 'launch', 'bringup.launch.py']
+    )
+    dashboard_launch_file = PathJoinSubstitution(
+        [FindPackageShare('eezybotarm_dashboard'), 'launch', 'dashboard.launch.py']
     )
     use_mock_hardware = LaunchConfiguration('use_mock_hardware')
     i2c_bus = LaunchConfiguration('i2c_bus')
@@ -18,8 +22,14 @@ def generate_launch_description():
     use_mock_camera = LaunchConfiguration('use_mock_camera')
     start_camera = LaunchConfiguration('start_camera')
     weights_path = LaunchConfiguration('weights_path')
+    start_dashboard = LaunchConfiguration('start_dashboard')
 
     default_weights_path = '/usr/share/models/model.onnx'
+
+    dashboard_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(dashboard_launch_file),
+        condition=IfCondition(start_dashboard),
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -67,6 +77,11 @@ def generate_launch_description():
             default_value=default_weights_path,
             description='Path to YOLO weights file',
         ),
+        DeclareLaunchArgument(
+            'start_dashboard',
+            default_value='false',
+            description='Whether to start the NiceGUI web dashboard alongside dev stack',
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(bringup),
             launch_arguments={
@@ -81,4 +96,5 @@ def generate_launch_description():
                 'weights_path': weights_path,
             }.items(),
         ),
+        dashboard_launch,
     ])

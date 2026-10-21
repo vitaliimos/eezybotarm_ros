@@ -1,0 +1,29 @@
+python3-nicegui:
+  ubuntu:
+    pip:
+      packages: [nicegui]
+  debian:
+    pip:
+      packages: [nicegui]
+  oe:
+    recipes: [python3-nicegui]
+
+python3-onnxruntime:
+  ubuntu:
+    pip:
+      packages: [onnxruntime]
+  debian:
+    pip:
+      packages: [onnxruntime]
+  oe:
+    recipes: [python3-onnxruntime]
+
+python3-tensorrt:
+  ubuntu:
+    pip:
+      packages: [tensorrt]
+  debian:
+    pip:
+      packages: [python3-tensorrt]
+  oe:
+    recipes: [python3-tensorrt]

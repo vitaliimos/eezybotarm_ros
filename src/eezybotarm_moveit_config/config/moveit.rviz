@@ -285,7 +285,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /eezybotarm_vision/debug_image
+        Value: /eezybotarm_vision/debug_image/compressed
         Transport Hint: compressed
       Value: true
   Enabled: true

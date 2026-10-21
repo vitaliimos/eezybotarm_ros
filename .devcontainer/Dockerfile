@@ -49,6 +49,18 @@ RUN apt-get update \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /etc/pip && printf "[global]\nbreak-system-packages = true\n" > /etc/pip.conf
+
+# Configure custom rosdep rules and install dependencies for packages migrated to rosdep
+COPY rosdep.yaml /etc/ros/rosdep/custom_rules/eeazybot.yaml
+RUN echo "yaml file:///etc/ros/rosdep/custom_rules/eeazybot.yaml" > /etc/ros/rosdep/sources.list.d/50-eeazybot.list
+
+COPY src/eezybotarm_dashboard/package.xml /tmp/manifests/eezybotarm_dashboard/package.xml
+RUN rosdep init || true \
+    && rosdep update \
+    && rosdep install --from-paths /tmp/manifests --ignore-src -y \
+    && rm -rf /tmp/manifests
+
 RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed "setuptools<70" "numpy<2" onnxruntime tensorrt nvidia-cuda-runtime-cu12
 
 RUN mkdir -p /eezybot_ros \

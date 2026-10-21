@@ -44,6 +44,7 @@ Thumbs.db
 # Only the custom eezybotarm_* packages are version-controlled in this repository
 src/*/
 !src/eezybotarm_control/
+!src/eezybotarm_dashboard/
 !src/eezybotarm_description/
 !src/eezybotarm_hardware/
 !src/eezybotarm_interfaces/

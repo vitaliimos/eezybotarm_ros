@@ -10,14 +10,14 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 # Ensure image exists or build from .devcontainer/Dockerfile
 if ! docker image inspect "$IMAGE_NAME" &>/dev/null; then
     echo "Image '$IMAGE_NAME' not found. Building from .devcontainer/Dockerfile..."
-    docker build -t "$IMAGE_NAME" -f "$SCRIPT_DIR/.devcontainer/Dockerfile" "$SCRIPT_DIR/.devcontainer"
+    docker build -t "$IMAGE_NAME" -f "$SCRIPT_DIR/.devcontainer/Dockerfile" "$SCRIPT_DIR"
 fi
 
 DOCKER_ARGS=(
     --rm
     -i
     --network=host
-    -v "$SCRIPT_DIR:/workspaces"
+    -v "$SCRIPT_DIR:/eezybot_ros"
     -w /workspaces
     -u "$(id -u):$(id -g)"
     -e "DISPLAY=${DISPLAY:-}"
