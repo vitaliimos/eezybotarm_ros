@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -21,8 +22,9 @@ public:
   void open(const std::string & bus, int address, double pwm_frequency_hz);
   void close();
 
-  // channel must be in [0, kNumChannels).
-  bool set_pulse_us(int channel, double pulse_us);
+  // Stages the pulse width for channel in [0, kNumChannels); call flush() to send.
+  void set_pulse_us(int channel, double pulse_us);
+  bool flush();
   bool all_off();
 
 private:
@@ -30,6 +32,9 @@ private:
 
   int fd_ = -1;
   double us_per_tick_ = 0.0;
+  std::array<std::uint16_t, kNumChannels> ticks_{};
+  int max_channel_ = -1;
+  bool dirty_ = false;
 };
 
 }  // namespace eezybotarm_hardware

@@ -208,12 +208,11 @@ hardware_interface::return_type EezyBotArmHardware::read(
 hardware_interface::return_type EezyBotArmHardware::write(
   const rclcpp::Time &, const rclcpp::Duration &)
 {
-  bool ok = true;
   for (std::size_t i = 0; i < servos_.size(); i++) {
-    ok &= pca_.set_pulse_us(servos_[i].channel, pulse_us(servos_[i], hw_commands_[i]));
+    pca_.set_pulse_us(servos_[i].channel, pulse_us(servos_[i], hw_commands_[i]));
   }
 
-  if (ok) {
+  if (pca_.flush()) {
     write_failures_ = 0;
     return hardware_interface::return_type::OK;
   }

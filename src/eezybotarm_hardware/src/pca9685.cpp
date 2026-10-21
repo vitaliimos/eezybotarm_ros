@@ -73,18 +73,47 @@ void Pca9685::close()
   }
 }
 
-bool Pca9685::set_pulse_us(int channel, double pulse_us)
+void Pca9685::set_pulse_us(int channel, double pulse_us)
 {
   const auto ticks = static_cast<std::uint16_t>(
     std::clamp(std::lround(pulse_us / us_per_tick_), 0L, 4095L));
-  const std::uint8_t buf[5] = {
-    static_cast<std::uint8_t>(kLed0OnL + 4 * channel), 0, 0,
-    static_cast<std::uint8_t>(ticks & 0xFF), static_cast<std::uint8_t>(ticks >> 8)};
-  return ::write(fd_, buf, sizeof(buf)) == static_cast<ssize_t>(sizeof(buf));
+  max_channel_ = std::max(max_channel_, channel);
+  if (ticks != ticks_[channel]) {
+    ticks_[channel] = ticks;
+    dirty_ = true;
+  }
+}
+
+bool Pca9685::flush()
+{
+  if (!dirty_ || max_channel_ < 0) {
+    return true;
+  }
+
+  std::uint8_t buf[1 + 4 * kNumChannels];
+  buf[0] = kLed0OnL;
+  for (int ch = 0; ch <= max_channel_; ch++) {
+    const std::uint16_t t = ticks_[ch];
+    std::uint8_t * p = &buf[1 + 4 * ch];
+    p[0] = 0;
+    p[1] = 0;
+    p[2] = static_cast<std::uint8_t>(t & 0xFF);
+    p[3] = static_cast<std::uint8_t>(t >> 8);
+  }
+
+  const auto len = static_cast<ssize_t>(1 + 4 * (max_channel_ + 1));
+  if (::write(fd_, buf, len) != len) {
+    return false;
+  }
+  dirty_ = false;
+  return true;
 }
 
 bool Pca9685::all_off()
 {
+  ticks_.fill(static_cast<std::uint16_t>(kFullOff) << 8);
+  max_channel_ = -1;
+  dirty_ = false;
   return write_reg(kAllLedOffH, kFullOff);
 }
 
