@@ -1,8 +1,7 @@
 import math
 
+from eezybotarm_vision.yolo_detector import YoloCubeDetector
 import numpy as np
-
-from eezybotarm_vision.yolo_detector import CubeDetection, YoloCubeDetector
 
 
 def test_letterbox_preserves_aspect_ratio_and_pads():

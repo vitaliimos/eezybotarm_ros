@@ -7,3 +7,6 @@
     robot_x_offset_m: 0.127
     robot_y_offset_m: 0.0
     cube_height_m: 0.025
+    # Corner sticker dimensions (horizontal placement flush with table corners)
+    sticker_width_m: 0.030
+    sticker_height_m: 0.015

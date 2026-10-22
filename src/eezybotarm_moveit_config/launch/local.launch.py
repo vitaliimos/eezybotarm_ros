@@ -25,6 +25,7 @@ def generate_launch_description():
     use_vision = LaunchConfiguration('use_vision')
     use_mock_camera = LaunchConfiguration('use_mock_camera')
     start_camera = LaunchConfiguration('start_camera')
+    video_device = LaunchConfiguration('video_device')
     weights_path = LaunchConfiguration('weights_path')
     start_dashboard = LaunchConfiguration('start_dashboard')
 
@@ -75,6 +76,11 @@ def generate_launch_description():
             description='Whether to start camera streaming node in vision',
         ),
         DeclareLaunchArgument(
+            'video_device',
+            default_value='/dev/video1',
+            description='Path to the V4L2 capture device for the physical camera',
+        ),
+        DeclareLaunchArgument(
             'weights_path',
             default_value=default_weights_path,
             description='Path to YOLO ONNX weights file in eezybotarm_vision',
@@ -95,6 +101,7 @@ def generate_launch_description():
                 'use_vision': use_vision,
                 'use_mock_camera': use_mock_camera,
                 'start_camera': start_camera,
+                'video_device': video_device,
                 'weights_path': weights_path,
             }.items(),
         ),

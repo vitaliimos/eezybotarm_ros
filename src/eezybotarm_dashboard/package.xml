@@ -17,6 +17,7 @@
   <depend>python3-opencv</depend>
   <depend>eezybotarm_interfaces</depend>
 
+  <exec_depend>eezybotarm_description</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-nicegui</exec_depend>

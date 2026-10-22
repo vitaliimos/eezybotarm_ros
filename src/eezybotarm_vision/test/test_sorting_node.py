@@ -4,25 +4,52 @@ from unittest.mock import MagicMock, patch
 
 from eezybotarm_vision.sorting_node import SortingCoordinatorNode, SortingState
 from eezybotarm_vision.yolo_detector import CubeDetection
-from eezybotarm_vision.zone_detector import ZoneDetectionResult
+from eezybotarm_vision.zone_detector import Zone, ZoneDetectionResult
 import numpy as np
 import pytest
 import rclpy
-from sensor_msgs.msg import Image
-from rclpy.parameter import Parameter
 from rclpy.exceptions import ParameterUninitializedException
+from rclpy.parameter import Parameter
+from sensor_msgs.msg import Image
 
 
 def _make_test_node(**kwargs) -> SortingCoordinatorNode:
     params = [
+        Parameter('conf_threshold', Parameter.Type.DOUBLE, 0.5),
+        Parameter('iou_threshold', Parameter.Type.DOUBLE, 0.45),
+        Parameter('stable_frames_required', Parameter.Type.INTEGER, 8),
+        Parameter('cooldown_duration_sec', Parameter.Type.DOUBLE, 2.5),
+        Parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER, 80),
+        Parameter('action_name', Parameter.Type.STRING, 'pick_and_place'),
+        Parameter('recalibration_interval_sec', Parameter.Type.DOUBLE, 30.0),
+        Parameter('calibration_smoothing_alpha', Parameter.Type.DOUBLE, 0.25),
         Parameter('table_width_m', Parameter.Type.DOUBLE, 0.300),
         Parameter('table_depth_m', Parameter.Type.DOUBLE, 0.200),
         Parameter('robot_x_offset_m', Parameter.Type.DOUBLE, 0.127),
         Parameter('robot_y_offset_m', Parameter.Type.DOUBLE, 0.0),
         Parameter('table_z_m', Parameter.Type.DOUBLE, 0.075),
         Parameter('cube_height_m', Parameter.Type.DOUBLE, 0.025),
+        Parameter('sticker_width_m', Parameter.Type.DOUBLE, 0.030),
+        Parameter('sticker_height_m', Parameter.Type.DOUBLE, 0.015),
     ]
     return SortingCoordinatorNode(parameter_overrides=params, **kwargs)
+
+
+def _make_dummy_calibration(corners: np.ndarray | None = None) -> ZoneDetectionResult:
+    if corners is None:
+        corners = np.array([[0, 0], [100, 0], [100, 100], [0, 100]], dtype=np.float32)
+    dummy_corners = np.array([[0, 0], [30, 0], [30, 100], [0, 100]], dtype=np.float32)
+    return ZoneDetectionResult(
+        zones={
+            'left': Zone('left', (15, 50), dummy_corners),
+            'middle': Zone('middle', (45, 50), dummy_corners),
+            'right': Zone('right', (75, 50), dummy_corners),
+        },
+        field_corners_px=corners.astype(np.float32),
+        homography_matrix=np.eye(3, dtype=np.float32),
+        field_width_mm=300.0,
+        field_height_mm=200.0,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -59,7 +86,7 @@ def _make_cube(
 
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_missing_required_parameters_raises(mock_detector):
-    """Verify that omitting required workspace parameters raises ParameterUninitializedException."""
+    """Verify omitting required workspace parameters raises ParameterUninitializedException."""
     with pytest.raises(ParameterUninitializedException):
         SortingCoordinatorNode()
 
@@ -101,13 +128,7 @@ def test_state_change_logging(mock_detector):
 @patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
 def test_handle_image_calibrating_success(mock_detector, mock_detect_zones):
     """Verify transition from CALIBRATING to SCANNING on zone detection."""
-    mock_calib = ZoneDetectionResult(
-        zones={'left': MagicMock(), 'middle': MagicMock(), 'right': MagicMock()},
-        field_corners_px=np.zeros((4, 2), dtype=np.float32),
-        homography_matrix=np.eye(3, dtype=np.float32),
-        field_width_mm=300.0,
-        field_height_mm=200.0,
-    )
+    mock_calib = _make_dummy_calibration()
     mock_detect_zones.return_value = mock_calib
 
     node = _make_test_node()
@@ -251,5 +272,61 @@ def test_publish_debug_image(mock_detector):
                 detections=[],
                 status_extra='',
             )
+    finally:
+        node.destroy_node()
+
+
+@patch('eezybotarm_vision.sorting_node.detect_zones')
+@patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
+def test_periodic_recalibration_in_scanning_success(mock_detector, mock_detect_zones):
+    """Verify periodic recalibration in SCANNING updates calibration using smoothing."""
+    mock_calib1 = _make_dummy_calibration(
+        np.array([[0, 0], [100, 0], [100, 100], [0, 100]], dtype=np.float32)
+    )
+    mock_calib2 = _make_dummy_calibration(
+        np.array([[10, 10], [110, 10], [110, 110], [10, 110]], dtype=np.float32)
+    )
+    mock_detector.return_value.predict.return_value = []
+
+    node = _make_test_node()
+    try:
+        node.calibration = mock_calib1
+        node.state = SortingState.SCANNING
+        node.recalibration_interval_sec = 1.0
+        node.last_recalibration_time = 0.0  # Force elapsed
+
+        mock_detect_zones.return_value = mock_calib2
+        dummy_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        node._handle_scanning(dummy_frame)
+
+        mock_detect_zones.assert_called_once()
+        assert node.calibration is not None
+        # Verify smoothed corners: 0.75 * [0, 0] + 0.25 * [10, 10] = [2.5, 2.5]
+        assert np.allclose(node.calibration.field_corners_px[0], [2.5, 2.5], atol=1e-1)
+    finally:
+        node.destroy_node()
+
+
+@patch('eezybotarm_vision.sorting_node.detect_zones')
+@patch('eezybotarm_vision.sorting_node.YoloCubeDetector')
+def test_periodic_recalibration_occlusion_preserves_calibration(mock_detector, mock_detect_zones):
+    """Verify occlusion (detect_zones returning None) gracefully preserves existing calibration."""
+    mock_calib1 = _make_dummy_calibration()
+    mock_detector.return_value.predict.return_value = []
+
+    node = _make_test_node()
+    try:
+        node.calibration = mock_calib1
+        node.state = SortingState.SCANNING
+        node.recalibration_interval_sec = 1.0
+        node.last_recalibration_time = 0.0  # Force elapsed
+
+        mock_detect_zones.return_value = None  # Occlusion
+        dummy_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        node._handle_scanning(dummy_frame)
+
+        mock_detect_zones.assert_called_once()
+        assert node.calibration is mock_calib1
+        assert node.state == SortingState.SCANNING
     finally:
         node.destroy_node()

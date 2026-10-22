@@ -18,6 +18,7 @@ def generate_launch_description():
     use_vision = LaunchConfiguration('use_vision')
     use_mock_camera = LaunchConfiguration('use_mock_camera')
     start_camera = LaunchConfiguration('start_camera')
+    video_device = LaunchConfiguration('video_device')
     weights_path = LaunchConfiguration('weights_path')
     include_environment = LaunchConfiguration('include_environment')
 
@@ -138,6 +139,7 @@ def generate_launch_description():
         launch_arguments={
             'use_mock_camera': use_mock_camera,
             'start_camera': start_camera,
+            'video_device': video_device,
             'weights_path': weights_path,
             'use_rviz': 'false',
             'gui': 'false',
@@ -185,6 +187,11 @@ def generate_launch_description():
             'start_camera',
             default_value='true',
             description='Whether to start camera streaming node in vision',
+        ),
+        DeclareLaunchArgument(
+            'video_device',
+            default_value='/dev/video0',
+            description='Path to the V4L2 capture device for the physical camera',
         ),
         DeclareLaunchArgument(
             'weights_path',

@@ -18,6 +18,7 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import CompressedImage, Image, JointState
 import tf2_ros
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -26,8 +27,8 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 class EezybotDashboardNode(Node):
     """ROS 2 node that powers the NiceGUI dashboard backend."""
 
-    def __init__(self):
-        super().__init__('eezybotarm_dashboard')
+    def __init__(self, **kwargs):
+        super().__init__('eezybotarm_dashboard', **kwargs)
 
         # Configuration parameters
         self.declare_parameter('host', '0.0.0.0')
@@ -35,13 +36,13 @@ class EezybotDashboardNode(Node):
         self.declare_parameter('camera_raw_topic', '/camera/image_raw/compressed')
         self.declare_parameter('camera_debug_topic', '/eezybotarm_vision/debug_image/compressed')
 
-        # Geometry parameters with defaults (from environment.yaml)
-        self.declare_parameter('table_z_m', 0.075)
-        self.declare_parameter('table_depth_m', 0.200)
-        self.declare_parameter('table_width_m', 0.300)
-        self.declare_parameter('robot_x_offset_m', 0.127)
-        self.declare_parameter('robot_y_offset_m', 0.0)
-        self.declare_parameter('cube_height_m', 0.025)
+        # Physical workspace parameters (must be supplied via environment.yaml / launch)
+        self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('table_depth_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('robot_x_offset_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
 
         self.cb_group = ReentrantCallbackGroup()
         self.cv_bridge = CvBridge()
@@ -320,8 +321,8 @@ def build_dashboard_ui(node: EezybotDashboardNode):
                 video_url = f'/stream/video?type={stream_select.value}'
                 video_img = (
                     ui.image(video_url)
-                    .props('fit=contain :ratio="4/3"')
-                    .classes('w-full aspect-[4/3] rounded-lg border border-gray-300 shadow-inner bg-black')
+                    .props('fit=contain :ratio="16/9"')
+                    .classes('w-full aspect-[16/9] rounded-lg border border-gray-300 shadow-inner bg-black')
                 )
                 stream_select.on_value_change(
                     lambda e: video_img.set_source(f'/stream/video?type={e.value}&t={time.time()}')

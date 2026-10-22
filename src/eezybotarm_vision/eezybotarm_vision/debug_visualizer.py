@@ -91,7 +91,7 @@ class DebugVisualizer:
         if state_text == 'CALIBRATING':
             cv2.putText(
                 annotated,
-                'Calibrating: Looking for 3 Zones...',
+                'Calibrating: Looking for Workspace...',
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 fontScale=0.7,

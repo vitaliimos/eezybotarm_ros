@@ -20,6 +20,7 @@ from .zone_detector import (
     detect_zones,
     get_real_coordinates,
     identify_zone,
+    smooth_calibration,
     ZoneDetectionResult,
 )
 
@@ -50,6 +51,8 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('cooldown_duration_sec', Parameter.Type.DOUBLE)
         self.declare_parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER)
         self.declare_parameter('action_name', Parameter.Type.STRING)
+        self.declare_parameter('recalibration_interval_sec', Parameter.Type.DOUBLE)
+        self.declare_parameter('calibration_smoothing_alpha', Parameter.Type.DOUBLE)
 
         # Physical workspace parameters (must be supplied via environment.yaml / launch)
         self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
@@ -58,15 +61,32 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
         self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
         self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
-        weights_path = self.get_parameter('weights_path').value or default_model_path
+        weights_path = (
+            self.get_parameter('weights_path').get_parameter_value().string_value
+            or default_model_path
+        )
         if not os.path.exists(weights_path) and os.path.exists(default_model_path):
             weights_path = default_model_path
-        conf_thresh = self.get_parameter('conf_threshold').value
-        iou_thresh = self.get_parameter('iou_threshold').value
-        self.stable_frames_required = self.get_parameter('stable_frames_required').value
-        self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
-        jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
+        conf_thresh = self.get_parameter('conf_threshold').get_parameter_value().double_value
+        iou_thresh = self.get_parameter('iou_threshold').get_parameter_value().double_value
+        self.stable_frames_required = (
+            self.get_parameter('stable_frames_required').get_parameter_value().integer_value
+        )
+        self.cooldown_duration_sec = (
+            self.get_parameter('cooldown_duration_sec').get_parameter_value().double_value
+        )
+        self.recalibration_interval_sec = (
+            self.get_parameter('recalibration_interval_sec').get_parameter_value().double_value
+        )
+        self.calibration_smoothing_alpha = (
+            self.get_parameter('calibration_smoothing_alpha').get_parameter_value().double_value
+        )
+        jpeg_quality = (
+            self.get_parameter('debug_image_jpeg_quality').get_parameter_value().integer_value
+        )
 
         self.get_logger().info(f'Loading Cube Detector with: "{weights_path}"...')
         try:
@@ -83,15 +103,25 @@ class SortingCoordinatorNode(Node):
             raise
 
         self.coord_mapper = CoordinateMapper(
-            table_width_m=self.get_parameter('table_width_m').value,
-            table_depth_m=self.get_parameter('table_depth_m').value,
-            robot_x_offset_m=self.get_parameter('robot_x_offset_m').value,
-            robot_y_offset_m=self.get_parameter('robot_y_offset_m').value,
-            table_z_m=self.get_parameter('table_z_m').value,
-            cube_height_m=self.get_parameter('cube_height_m').value,
+            table_width_m=self.get_parameter('table_width_m').get_parameter_value().double_value,
+            table_depth_m=self.get_parameter('table_depth_m').get_parameter_value().double_value,
+            robot_x_offset_m=(
+                self.get_parameter('robot_x_offset_m').get_parameter_value().double_value
+            ),
+            robot_y_offset_m=(
+                self.get_parameter('robot_y_offset_m').get_parameter_value().double_value
+            ),
+            table_z_m=self.get_parameter('table_z_m').get_parameter_value().double_value,
+            cube_height_m=self.get_parameter('cube_height_m').get_parameter_value().double_value,
+            sticker_width_m=(
+                self.get_parameter('sticker_width_m').get_parameter_value().double_value
+            ),
+            sticker_height_m=(
+                self.get_parameter('sticker_height_m').get_parameter_value().double_value
+            ),
         )
 
-        action_name = self.get_parameter('action_name').value
+        action_name = self.get_parameter('action_name').get_parameter_value().string_value
         self.action_client = ActionClient(self, PickObject, action_name)
 
         self.subscription = self.create_subscription(
@@ -108,6 +138,7 @@ class SortingCoordinatorNode(Node):
         self.candidate_cube: CubeDetection | None = None
         self.candidate_frames_count = 0
         self.cooldown_start_time = 0.0
+        self.last_recalibration_time = 0.0
         self.current_action_phase = ''
         self._is_processing = False
 
@@ -166,9 +197,12 @@ class SortingCoordinatorNode(Node):
             frame,
             field_width_mm=self.coord_mapper.paper_width_mm,
             field_height_mm=self.coord_mapper.paper_height_mm,
+            marker_inset_x_mm=self.coord_mapper.marker_inset_x_mm,
+            marker_inset_y_mm=self.coord_mapper.marker_inset_y_mm,
         )
         if detected_zones is not None:
             self.calibration = detected_zones
+            self.last_recalibration_time = time.monotonic()
             self.get_logger().info('Workspace zones detected and locked.')
             self.state = SortingState.SCANNING
 
@@ -264,10 +298,37 @@ class SortingCoordinatorNode(Node):
             self.candidate_frames_count = 0
             self.state = SortingState.SCANNING
 
+    def _recalibrate_if_needed(self, frame: np.ndarray) -> None:
+        """Periodically recalibrate workspace zones during SCANNING with smoothing."""
+        if self.state != SortingState.SCANNING or self.calibration is None:
+            return
+        now = time.monotonic()
+        if now - self.last_recalibration_time < self.recalibration_interval_sec:
+            return
+
+        self.last_recalibration_time = now
+        detected_zones = detect_zones(
+            frame,
+            field_width_mm=self.coord_mapper.paper_width_mm,
+            field_height_mm=self.coord_mapper.paper_height_mm,
+            marker_inset_x_mm=self.coord_mapper.marker_inset_x_mm,
+            marker_inset_y_mm=self.coord_mapper.marker_inset_y_mm,
+        )
+        if detected_zones is not None:
+            self.calibration = smooth_calibration(
+                self.calibration,
+                detected_zones,
+                alpha=self.calibration_smoothing_alpha,
+                marker_inset_x_mm=self.coord_mapper.marker_inset_x_mm,
+                marker_inset_y_mm=self.coord_mapper.marker_inset_y_mm,
+            )
+            self.get_logger().debug('Workspace calibration smoothed and updated.')
+
     def _handle_scanning(
         self, frame: np.ndarray
     ) -> list[tuple[CubeDetection, str, float, float]]:
         """Detect cubes and track middle-zone candidate."""
+        self._recalibrate_if_needed(frame)
         all_detections, middle_detections = self._detect_and_map_cubes(frame)
         self._update_candidate_tracking(middle_detections)
         return all_detections

@@ -1,9 +1,8 @@
-import os
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -11,31 +10,34 @@ def generate_launch_description():
     port = LaunchConfiguration('port')
     camera_raw_topic = LaunchConfiguration('camera_raw_topic')
     camera_debug_topic = LaunchConfiguration('camera_debug_topic')
+    environment_config = LaunchConfiguration('environment_config')
 
-    # Find environment.yaml in description package if available
-    try:
-        desc_share = get_package_share_directory('eezybotarm_description')
-        env_yaml = os.path.join(desc_share, 'config', 'environment.yaml')
-        parameters = [env_yaml]
-    except Exception:
-        parameters = []
-
-    parameters.append({
-        'host': host,
-        'port': port,
-        'camera_raw_topic': camera_raw_topic,
-        'camera_debug_topic': camera_debug_topic,
-    })
+    default_env_config = PathJoinSubstitution([
+        FindPackageShare('eezybotarm_description'), 'config', 'environment.yaml'
+    ])
 
     dashboard_node = Node(
         package='eezybotarm_dashboard',
         executable='dashboard_node',
         name='eezybotarm_dashboard',
         output='screen',
-        parameters=parameters,
+        parameters=[
+            environment_config,
+            {
+                'host': host,
+                'port': port,
+                'camera_raw_topic': camera_raw_topic,
+                'camera_debug_topic': camera_debug_topic,
+            },
+        ],
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'environment_config',
+            default_value=default_env_config,
+            description='Path to workspace environment parameters YAML file',
+        ),
         DeclareLaunchArgument(
             'host',
             default_value='0.0.0.0',

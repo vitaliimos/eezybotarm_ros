@@ -1,15 +1,18 @@
 camera:
   ros__parameters:
     video_device: "/dev/video0"
-    image_size: [800, 600]
+    image_size: [1280, 720]
     time_per_frame: [1, 10]
     pixel_format: "YUYV"
     output_encoding: "yuv422_yuy2"
     camera_name: "camera"
     camera_frame_id: "camera_optical_frame"
-    brightness: 135
-    auto_exposure: 1
-    exposure_time_absolute: 156
+    auto_exposure: 3
+    focus_automatic_continuous: false
+    focus_absolute: 0
+    zoom_absolute: 0
+    pan_absolute: 0
+    tilt_absolute: 0
 
 mock_camera:
   ros__parameters:
@@ -26,3 +29,5 @@ sorting_coordinator_node:
     cooldown_duration_sec: 2.5
     action_name: "pick_and_place"
     debug_image_jpeg_quality: 80
+    recalibration_interval_sec: 3.0
+    calibration_smoothing_alpha: 0.25

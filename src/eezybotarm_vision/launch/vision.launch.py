@@ -19,6 +19,7 @@ def generate_launch_description():
     environment_config = LaunchConfiguration('environment_config')
     start_camera = LaunchConfiguration('start_camera')
     use_mock_camera = LaunchConfiguration('use_mock_camera')
+    video_device = LaunchConfiguration('video_device')
     mock_image_path = LaunchConfiguration('mock_image_path')
     weights_path = LaunchConfiguration('weights_path')
     gui = LaunchConfiguration('gui')
@@ -43,7 +44,7 @@ def generate_launch_description():
         package='v4l2_camera',
         executable='v4l2_camera_node',
         name='camera',
-        parameters=[config_file],
+        parameters=[config_file, {'video_device': video_device}],
         remappings=[
             ('image_raw', '/camera/image_raw'),
             ('camera_info', '/camera/camera_info'),
@@ -127,6 +128,11 @@ def generate_launch_description():
             'use_mock_camera',
             default_value='false',
             description='Whether to use image_publisher mock instead of physical camera',
+        ),
+        DeclareLaunchArgument(
+            'video_device',
+            default_value='/dev/video0',
+            description='Path to the V4L2 capture device for the physical camera',
         ),
         DeclareLaunchArgument(
             'mock_image_path',

@@ -14,6 +14,8 @@ class CoordinateMapper:
         robot_y_offset_m: float,
         table_z_m: float,
         cube_height_m: float,
+        sticker_width_m: float,
+        sticker_height_m: float,
     ):
         self.table_width_m = table_width_m
         self.table_depth_m = table_depth_m
@@ -26,6 +28,12 @@ class CoordinateMapper:
         self.robot_y_offset_m = robot_y_offset_m
         self.table_z_m = table_z_m
         self.cube_height_m = cube_height_m
+        self.sticker_width_m = sticker_width_m
+        self.sticker_height_m = sticker_height_m
+        self.sticker_width_mm = sticker_width_m * 1000.0
+        self.sticker_height_mm = sticker_height_m * 1000.0
+        self.marker_inset_x_mm = self.sticker_width_mm / 2.0
+        self.marker_inset_y_mm = self.sticker_height_mm / 2.0
 
     def paper_to_robot_xyz(self, x_mm: float, y_mm: float) -> tuple[float, float, float]:
         """Convert table coordinates (mm) to robot base_link frame (meters)."""
