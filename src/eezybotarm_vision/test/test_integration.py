@@ -42,7 +42,7 @@ def test_vision_pipeline_integration():
         sample_img_path = os.path.join(
             get_package_share_directory('eezybotarm_vision'),
             'resource',
-            'sample_workspace.jpg',
+            'sample_workspace.png',
         )
         assert os.path.exists(sample_img_path), f'Sample image not found: {sample_img_path}'
         sample_frame = cv2.imread(sample_img_path)

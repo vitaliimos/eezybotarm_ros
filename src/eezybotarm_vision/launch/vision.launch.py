@@ -12,7 +12,7 @@ def generate_launch_description():
     default_env_config = PathJoinSubstitution([
         FindPackageShare('eezybotarm_description'), 'config', 'environment.yaml'
     ])
-    default_mock_image = PathJoinSubstitution([pkg_share, 'resource', 'sample_workspace.jpg'])
+    default_mock_image = PathJoinSubstitution([pkg_share, 'resource', 'sample_workspace.png'])
     default_weights_path = '/usr/share/models/model.engine'
 
     config_file = LaunchConfiguration('config_file')
