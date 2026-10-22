@@ -103,7 +103,7 @@
     <parent link="virtual_parallelogram_link" />
     <child link="forearm_link" />
     <axis xyz="0 1 0" />
-    <limit effort="0" velocity="0" lower="-0.25" upper="0.9"/>
+    <limit effort="0" velocity="0" lower="-0.25" upper="1.0"/>
   </joint>
 
 <!-- ELBOW -->
