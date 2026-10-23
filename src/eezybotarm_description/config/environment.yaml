@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     # Table geometry and workspace
-    table_z_m: 0.075
+    table_z_m: 0.095
     table_depth_m: 0.200
     table_width_m: 0.300
     robot_x_offset_m: 0.127
