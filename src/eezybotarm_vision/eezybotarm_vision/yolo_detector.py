@@ -130,9 +130,19 @@ class OnnxRunner:
     """ONNX Runtime inference runner for workstation development and testing."""
 
     def __init__(self, onnx_path: str):
+        import logging
         import onnxruntime as ort
 
-        self.session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
+        providers = [
+            p for p in ['CUDAExecutionProvider', 'CPUExecutionProvider']
+            if p in ort.get_available_providers()
+        ]
+
+        self.session = ort.InferenceSession(onnx_path, providers=providers)
+        active_providers = self.session.get_providers()
+        logging.getLogger(__name__).info(
+            f'Initialized ONNX Runtime session with providers: {active_providers}'
+        )
         self.input_name = self.session.get_inputs()[0].name
 
     def infer(self, input_blob: np.ndarray) -> np.ndarray:
@@ -174,9 +184,14 @@ class YoloCubeDetector:
             try:
                 self._runner = TrtRunner(path)
                 return
-            except Exception:
+            except Exception as exc:
                 onnx_path = path[:-7] + '.onnx'
                 if os.path.exists(onnx_path):
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"Failed to load TensorRT engine '{path}': {exc}. "
+                        f"Falling back to ONNX: '{onnx_path}'"
+                    )
                     self._runner = OnnxRunner(onnx_path)
                     return
                 raise
