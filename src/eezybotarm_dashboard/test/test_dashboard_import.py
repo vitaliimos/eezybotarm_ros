@@ -11,6 +11,22 @@ def test_import_node():
     assert EezybotDashboardNode is not None
 
 
+def test_missing_required_parameters_raises():
+    import pytest
+    import rclpy
+    from eezybotarm_dashboard.dashboard_node import EezybotDashboardNode
+    from rclpy.exceptions import ParameterUninitializedException
+
+    if not rclpy.ok():
+        rclpy.init()
+    try:
+        with pytest.raises(ParameterUninitializedException):
+            EezybotDashboardNode()
+    finally:
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
 def test_dashboard_page_build():
     import rclpy
     from eezybotarm_dashboard.dashboard_node import EezybotDashboardNode, build_dashboard_ui
@@ -20,6 +36,14 @@ def test_dashboard_page_build():
     if not rclpy.ok():
         rclpy.init()
     params = [
+        Parameter('host', Parameter.Type.STRING, '0.0.0.0'),
+        Parameter('port', Parameter.Type.INTEGER, 8080),
+        Parameter('camera_raw_topic', Parameter.Type.STRING, '/camera/image_raw/compressed'),
+        Parameter(
+            'camera_debug_topic',
+            Parameter.Type.STRING,
+            '/eezybotarm_vision/debug_image/compressed',
+        ),
         Parameter('table_width_m', Parameter.Type.DOUBLE, 0.300),
         Parameter('table_depth_m', Parameter.Type.DOUBLE, 0.200),
         Parameter('robot_x_offset_m', Parameter.Type.DOUBLE, 0.127),

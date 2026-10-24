@@ -69,9 +69,21 @@ class SortingCoordinatorNode(Node):
         iou_thresh = self.get_parameter('iou_threshold').value
         self.stable_frames_required = self.get_parameter('stable_frames_required').value
         self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
+        jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
+        action_name = self.get_parameter('action_name').value
         self.recalibration_interval_sec = self.get_parameter('recalibration_interval_sec').value
         self.calibration_smoothing_alpha = self.get_parameter('calibration_smoothing_alpha').value
-        jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
+
+        self.coord_mapper = CoordinateMapper(
+            table_width_m=self.get_parameter('table_width_m').value,
+            table_depth_m=self.get_parameter('table_depth_m').value,
+            robot_x_offset_m=self.get_parameter('robot_x_offset_m').value,
+            robot_y_offset_m=self.get_parameter('robot_y_offset_m').value,
+            table_z_m=self.get_parameter('table_z_m').value,
+            cube_height_m=self.get_parameter('cube_height_m').value,
+            sticker_width_m=self.get_parameter('sticker_width_m').value,
+            sticker_height_m=self.get_parameter('sticker_height_m').value,
+        )
 
         self.get_logger().info(f'Loading Cube Detector with: "{weights_path}"...')
         try:
@@ -87,18 +99,6 @@ class SortingCoordinatorNode(Node):
             )
             raise
 
-        self.coord_mapper = CoordinateMapper(
-            table_width_m=self.get_parameter('table_width_m').value,
-            table_depth_m=self.get_parameter('table_depth_m').value,
-            robot_x_offset_m=self.get_parameter('robot_x_offset_m').value,
-            robot_y_offset_m=self.get_parameter('robot_y_offset_m').value,
-            table_z_m=self.get_parameter('table_z_m').value,
-            cube_height_m=self.get_parameter('cube_height_m').value,
-            sticker_width_m=self.get_parameter('sticker_width_m').value,
-            sticker_height_m=self.get_parameter('sticker_height_m').value,
-        )
-
-        action_name = self.get_parameter('action_name').value
         self.action_client = ActionClient(self, PickObject, action_name)
 
         self.subscription = self.create_subscription(

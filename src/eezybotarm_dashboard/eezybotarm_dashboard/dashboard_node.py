@@ -30,19 +30,31 @@ class EezybotDashboardNode(Node):
     def __init__(self, **kwargs):
         super().__init__('eezybotarm_dashboard', **kwargs)
 
-        # Configuration parameters
-        self.declare_parameter('host', '0.0.0.0')
-        self.declare_parameter('port', 8080)
-        self.declare_parameter('camera_raw_topic', '/camera/image_raw/compressed')
-        self.declare_parameter('camera_debug_topic', '/eezybotarm_vision/debug_image/compressed')
+        # Dashboard and topic parameters
+        self.declare_parameter('host', Parameter.Type.STRING)
+        self.declare_parameter('port', Parameter.Type.INTEGER)
+        self.declare_parameter('camera_raw_topic', Parameter.Type.STRING)
+        self.declare_parameter('camera_debug_topic', Parameter.Type.STRING)
 
-        # Physical workspace parameters (must be supplied via environment.yaml / launch)
-        self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('table_depth_m', Parameter.Type.DOUBLE)
+        # Physical workspace parameters (supplied via environment.yaml)
         self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('table_depth_m', Parameter.Type.DOUBLE)
         self.declare_parameter('robot_x_offset_m', Parameter.Type.DOUBLE)
         self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
         self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
+
+        self.host = self.get_parameter('host').value
+        self.port = self.get_parameter('port').value
+        raw_topic = self.get_parameter('camera_raw_topic').value
+        debug_topic = self.get_parameter('camera_debug_topic').value
+
+        self.table_width_m = self.get_parameter('table_width_m').value
+        self.table_depth_m = self.get_parameter('table_depth_m').value
+        self.robot_x_offset_m = self.get_parameter('robot_x_offset_m').value
+        self.robot_y_offset_m = self.get_parameter('robot_y_offset_m').value
+        self.table_z_m = self.get_parameter('table_z_m').value
+        self.cube_height_m = self.get_parameter('cube_height_m').value
 
         self.cb_group = ReentrantCallbackGroup()
         self.cv_bridge = CvBridge()
@@ -88,9 +100,6 @@ class EezybotDashboardNode(Node):
             10,
             callback_group=self.cb_group,
         )
-
-        raw_topic = self.get_parameter('camera_raw_topic').value
-        debug_topic = self.get_parameter('camera_debug_topic').value
 
         self._setup_image_subscriber(raw_topic, is_debug=False)
         self._setup_image_subscriber(debug_topic, is_debug=True)
@@ -205,22 +214,15 @@ class EezybotDashboardNode(Node):
 
     def calculate_zone_xyz(self, zone_name: str) -> tuple[float, float, float]:
         """Calculates metric coordinates for zone center (in base_link frame)."""
-        table_width_m = self.get_parameter('table_width_m').value
-        table_depth_m = self.get_parameter('table_depth_m').value
-        robot_x_offset_m = self.get_parameter('robot_x_offset_m').value
-        robot_y_offset_m = self.get_parameter('robot_y_offset_m').value
-        table_z_m = self.get_parameter('table_z_m').value
-        cube_height_m = self.get_parameter('cube_height_m').value
-
         zone_multipliers = {'left': 0.5, 'middle': 1.5, 'right': 2.5}
         multiplier = zone_multipliers.get(zone_name, 1.5)
 
-        x_paper_m = (table_width_m / 3.0) * multiplier
-        y_paper_m = table_depth_m / 2.0
+        x_table_m = (self.table_width_m / 3.0) * multiplier
+        y_table_m = self.table_depth_m / 2.0
 
-        x_robot = robot_x_offset_m + y_paper_m
-        y_robot = robot_y_offset_m + (x_paper_m - (table_width_m / 2.0))
-        z_robot = table_z_m + (cube_height_m / 2.0)
+        x_robot = self.robot_x_offset_m + y_table_m
+        y_robot = self.robot_y_offset_m + (x_table_m - (self.table_width_m / 2.0))
+        z_robot = self.table_z_m + (self.cube_height_m / 2.0)
         return x_robot, y_robot, z_robot
 
     def trigger_pick_and_place(self, pick_zone: str = 'middle', place_zone: str = 'right'):
@@ -478,12 +480,9 @@ def main(args=None):
     def index():
         build_dashboard_ui(node)
 
-    host = node.get_parameter('host').value
-    port = node.get_parameter('port').value
-
     app.on_shutdown(lambda: (node.destroy_node(), rclpy.shutdown()))
 
-    ui.run(host=host, port=port, title='EezyBotArm Dashboard', reload=False)
+    ui.run(host=node.host, port=node.port, title='EezyBotArm Dashboard', reload=False)
 
 
 if __name__ == '__main__':
