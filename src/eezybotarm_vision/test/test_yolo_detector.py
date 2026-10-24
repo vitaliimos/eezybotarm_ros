@@ -1,11 +1,17 @@
-import math
+"""Unit tests for YOLO cube detector and inference runners."""
 
+import math
+import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+from eezybotarm_vision.inference_runners import OnnxRunner
 from eezybotarm_vision.yolo_detector import YoloCubeDetector
 import numpy as np
+import pytest
 
 
 def test_letterbox_preserves_aspect_ratio_and_pads():
-    """Verify letterbox resizes to exact target shape and computes proper scale."""
     img = np.zeros((300, 400, 3), dtype=np.uint8)
     padded, scale, left, top = YoloCubeDetector._letterbox(img, new_shape=(640, 640))
 
@@ -16,63 +22,55 @@ def test_letterbox_preserves_aspect_ratio_and_pads():
     assert abs(top - expected_top) <= 1.0
 
 
+def test_letterbox_16_9_inverse_mapping():
+    orig_h, orig_w = 576, 1024
+    img = np.zeros((orig_h, orig_w, 3), dtype=np.uint8)
+    padded, scale, pad_x, pad_y = YoloCubeDetector._letterbox(img, (640, 640))
+
+    assert padded.shape == (640, 640, 3)
+    assert abs(scale - (640.0 / 1024.0)) < 1e-6
+    assert abs(pad_x - 0.0) < 1e-6
+    assert abs(pad_y - 140.0) < 1e-6
+
+    det = object.__new__(YoloCubeDetector)
+    det.conf_threshold = 0.5
+    det.iou_threshold = 0.45
+    fake_out = np.array([[[320.0, 320.0, 64.0, 64.0, 0.98, 0.0, 0.1]]], dtype=np.float32)
+    fake_out = np.transpose(fake_out, (0, 2, 1))
+    results = det._postprocess(fake_out, scale, pad_x, pad_y, orig_w, orig_h)
+
+    assert len(results) == 1
+    assert abs(results[0].center_px[0] - 512.0) < 1e-3
+    assert abs(results[0].center_px[1] - 288.0) < 1e-3
+
+
+def test_detector_fail_fast_on_missing_model():
+    with pytest.raises(RuntimeError):
+        YoloCubeDetector(weights_path='/non/existent/model.engine')
+
+
 def test_postprocess_yolo_obb_format():
-    """Verify postprocessing decodes raw YOLO-OBB output with correct NMS and coordinates."""
     detector = YoloCubeDetector.__new__(YoloCubeDetector)
     detector.conf_threshold = 0.5
     detector.iou_threshold = 0.45
 
-    # Create dummy output tensor: (1, 7, 8400)
-    # Channels: [cx, cy, w, h, score_green, score_white, angle]
     out = np.zeros((1, 7, 8400), dtype=np.float32)
 
-    # Box 1: White cube at letterbox center (320, 320), size (50, 50), conf 0.85
-    out[0, 0, 100] = 320.0
-    out[0, 1, 100] = 320.0
-    out[0, 2, 100] = 50.0
-    out[0, 3, 100] = 50.0
-    out[0, 4, 100] = 0.05  # green
-    out[0, 5, 100] = 0.85  # white
-    out[0, 6, 100] = 0.0   # angle
+    # Box 1: White cube at (320, 320), size (50, 50), conf 0.85
+    out[0, :7, 100] = [320.0, 320.0, 50.0, 50.0, 0.05, 0.85, 0.0]
 
-    # Box 2: Duplicate of Box 1 with lower confidence (should be suppressed by NMS)
-    out[0, 0, 101] = 322.0
-    out[0, 1, 101] = 321.0
-    out[0, 2, 101] = 50.0
-    out[0, 3, 101] = 50.0
-    out[0, 4, 101] = 0.02
-    out[0, 5, 101] = 0.65
-    out[0, 6, 101] = 0.0
+    # Box 2: Duplicate of Box 1 with lower confidence (suppressed by NMS)
+    out[0, :7, 101] = [322.0, 321.0, 50.0, 50.0, 0.02, 0.65, 0.0]
 
-    # Box 3: Below confidence threshold (should be filtered out)
-    out[0, 0, 200] = 100.0
-    out[0, 1, 200] = 100.0
-    out[0, 2, 200] = 40.0
-    out[0, 3, 200] = 40.0
-    out[0, 4, 200] = 0.30  # < 0.5
-    out[0, 5, 200] = 0.10
-    out[0, 6, 200] = 0.0
+    # Box 3: Below confidence threshold (filtered out)
+    out[0, :7, 200] = [100.0, 100.0, 40.0, 40.0, 0.30, 0.10, 0.0]
 
     # Box 4: Green cube elsewhere, conf 0.90
-    out[0, 0, 300] = 200.0
-    out[0, 1, 300] = 150.0
-    out[0, 2, 300] = 60.0
-    out[0, 3, 300] = 60.0
-    out[0, 4, 300] = 0.90  # green
-    out[0, 5, 300] = 0.05
-    out[0, 6, 300] = 0.25  # angle rad
+    out[0, :7, 300] = [200.0, 150.0, 60.0, 60.0, 0.90, 0.05, 0.25]
 
-    scale = 1.0
-    pad_x = 0.0
-    pad_y = 0.0
-    orig_w = 640
-    orig_h = 640
+    detections = detector._postprocess(out, 1.0, 0.0, 0.0, 640, 640)
+    assert len(detections) == 2
 
-    detections = detector._postprocess(out, scale, pad_x, pad_y, orig_w, orig_h)
-
-    assert len(detections) == 2, f'Expected 2 detections after NMS, got {len(detections)}'
-
-    # Check top detection is green cube
     d0 = detections[0]
     assert d0.class_id == 0
     assert d0.class_name == 'green_cube'
@@ -82,7 +80,6 @@ def test_postprocess_yolo_obb_format():
     assert math.isclose(d0.angle, 0.25, rel_tol=1e-5)
     assert len(d0.corners) == 4
 
-    # Check second detection is white cube (box 2 suppressed by NMS)
     d1 = detections[1]
     assert d1.class_id == 1
     assert d1.class_name == 'white_cube'
@@ -92,7 +89,6 @@ def test_postprocess_yolo_obb_format():
 
 
 def test_postprocess_empty_and_none():
-    """Verify postprocessing handles empty, None, and all-zero outputs gracefully."""
     detector = YoloCubeDetector.__new__(YoloCubeDetector)
     detector.conf_threshold = 0.5
     detector.iou_threshold = 0.45
@@ -100,3 +96,47 @@ def test_postprocess_empty_and_none():
     assert detector._postprocess(None, 1.0, 0, 0, 640, 640) == []
     assert detector._postprocess([], 1.0, 0, 0, 640, 640) == []
     assert detector._postprocess(np.zeros((1, 7, 8400)), 1.0, 0, 0, 640, 640) == []
+
+
+def test_onnx_runner_basic_opt_and_cpu_fallback(monkeypatch):
+    expected_out = np.ones((1, 7, 8400), dtype=np.float32)
+
+    cuda_session = MagicMock()
+    cuda_session.get_providers.return_value = [
+        'CUDAExecutionProvider',
+        'CPUExecutionProvider',
+    ]
+    cuda_session.get_inputs.return_value = [SimpleNamespace(name='images')]
+    cuda_session.run.side_effect = RuntimeError('cudaErrorNoKernelImageForDevice')
+
+    cpu_session = MagicMock()
+    cpu_session.get_providers.return_value = ['CPUExecutionProvider']
+    cpu_session.get_inputs.return_value = [SimpleNamespace(name='images')]
+    cpu_session.run.return_value = [expected_out]
+
+    sessions = [cuda_session, cpu_session]
+    created_calls = []
+
+    def fake_inference_session(path, sess_options=None, providers=None):
+        created_calls.append((path, sess_options, providers))
+        return sessions.pop(0)
+
+    fake_ort = SimpleNamespace(
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_BASIC='ORT_ENABLE_BASIC'),
+        SessionOptions=lambda: SimpleNamespace(graph_optimization_level=None),
+        get_available_providers=lambda: ['CUDAExecutionProvider', 'CPUExecutionProvider'],
+        InferenceSession=fake_inference_session,
+    )
+    monkeypatch.setitem(sys.modules, 'onnxruntime', fake_ort)
+
+    runner = OnnxRunner('dummy.onnx')
+    assert len(created_calls) == 1
+    assert created_calls[0][1].graph_optimization_level == 'ORT_ENABLE_BASIC'
+    assert created_calls[0][2] == ['CUDAExecutionProvider', 'CPUExecutionProvider']
+
+    blob = np.zeros((1, 3, 640, 640), dtype=np.float32)
+    result = runner.infer(blob)
+
+    assert np.array_equal(result, expected_out)
+    assert len(created_calls) == 2
+    assert created_calls[1][2] == ['CPUExecutionProvider']

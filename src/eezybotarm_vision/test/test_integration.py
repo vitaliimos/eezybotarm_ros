@@ -8,13 +8,44 @@ import cv2
 import numpy as np
 import pytest
 import rclpy
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import CompressedImage, Image
+import yaml
 
 HAS_MODEL_RUNNER = (
     importlib.util.find_spec('tensorrt') is not None
     or importlib.util.find_spec('onnxruntime') is not None
 )
-HAS_MODEL_FILE = os.path.exists('/usr/share/models/model.engine')
+
+
+def _resolve_model_path() -> str | None:
+    trt_path = '/usr/share/models/model.engine'
+    if os.path.exists(trt_path):
+        return trt_path
+    try:
+        pkg_share = get_package_share_directory('eezybotarm_vision')
+        onnx_path = os.path.join(pkg_share, 'models', 'model.onnx')
+        if os.path.exists(onnx_path):
+            return onnx_path
+    except Exception:
+        pass
+    return None
+
+
+def _load_node_parameters(weights_path: str) -> list[Parameter]:
+    vision_share = get_package_share_directory('eezybotarm_vision')
+    desc_share = get_package_share_directory('eezybotarm_description')
+
+    vision_cfg_path = os.path.join(vision_share, 'config', 'vision_params.yaml')
+    env_cfg_path = os.path.join(desc_share, 'config', 'environment.yaml')
+
+    with open(vision_cfg_path, 'r', encoding='utf-8') as f:
+        vision_params = yaml.safe_load(f)['sorting_coordinator_node']['ros__parameters']
+    with open(env_cfg_path, 'r', encoding='utf-8') as f:
+        env_params = yaml.safe_load(f)['/**']['ros__parameters']
+
+    merged = {**vision_params, **env_params, 'weights_path': weights_path}
+    return [Parameter(name=k, value=v) for k, v in merged.items()]
 
 
 def _create_image_msg(node, frame: np.ndarray) -> Image:
@@ -30,12 +61,15 @@ def _create_image_msg(node, frame: np.ndarray) -> Image:
 
 
 @pytest.mark.skipif(
-    not (HAS_MODEL_RUNNER and HAS_MODEL_FILE),
+    not HAS_MODEL_RUNNER or _resolve_model_path() is None,
     reason='TensorRT or onnxruntime and model file required',
 )
 def test_vision_pipeline_integration():
     """Verify camera feed processing, zone detection, and cube classification."""
     from eezybotarm_vision.sorting_node import SortingCoordinatorNode, SortingState
+
+    model_path = _resolve_model_path()
+    assert model_path is not None
 
     rclpy.init()
     try:
@@ -48,10 +82,8 @@ def test_vision_pipeline_integration():
         sample_frame = cv2.imread(sample_img_path)
         assert sample_frame is not None, f'Failed to read {sample_img_path}'
 
-        # Create sorting coordinator node
-        sort_node = SortingCoordinatorNode()
-
-        # Create test helper node to publish camera frames and listen to output topics
+        params = _load_node_parameters(model_path)
+        sort_node = SortingCoordinatorNode(parameter_overrides=params)
         test_node = rclpy.create_node('pipeline_test_helper')
         cam_pub = test_node.create_publisher(Image, '/camera/image_raw', 10)
 
@@ -59,43 +91,31 @@ def test_vision_pipeline_integration():
         executor.add_node(sort_node)
         executor.add_node(test_node)
 
-        # Track messages
         debug_images_received = []
         comp_images_received = []
 
-        def on_debug_img(msg):
-            debug_images_received.append(msg)
-
-        def on_comp_img(msg):
-            comp_images_received.append(msg)
-
         test_node.create_subscription(
-            Image, '/eezybotarm_vision/debug_image', on_debug_img, 10
+            Image, '/eezybotarm_vision/debug_image', debug_images_received.append, 10
         )
         test_node.create_subscription(
-            CompressedImage, '/eezybotarm_vision/debug_image/compressed', on_comp_img, 10
+            CompressedImage,
+            '/eezybotarm_vision/debug_image/compressed',
+            comp_images_received.append,
+            10,
         )
 
-        # Publish test image
         cam_pub.publish(_create_image_msg(test_node, sample_frame))
 
-        # Spin executor to process subscriptions
         for _ in range(30):
             executor.spin_once(timeout_sec=0.05)
-            if len(debug_images_received) > 0 and len(comp_images_received) > 0:
+            if debug_images_received and comp_images_received:
                 break
 
-        # Verify zones were calibrated and state transitioned to SCANNING
         assert sort_node.state == SortingState.SCANNING
-        assert sort_node.calibration is not None, 'Calibration should be detected'
-        assert sort_node.active_calibration is not None, 'Active calibration property should match'
-        assert 'left' in sort_node.calibration.zones
-        assert 'middle' in sort_node.calibration.zones
-        assert 'right' in sort_node.calibration.zones
-
-        # Verify debug images published
-        assert len(debug_images_received) > 0, 'Debug image should be published'
-        assert len(comp_images_received) > 0, 'Compressed debug image should be published'
+        assert sort_node.calibration is not None
+        assert set(sort_node.calibration.zones.keys()) == {'left', 'middle', 'right'}
+        assert len(debug_images_received) > 0
+        assert len(comp_images_received) > 0
         assert comp_images_received[0].format == 'jpeg'
 
     finally:

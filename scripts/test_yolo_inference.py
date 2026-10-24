@@ -30,8 +30,8 @@ def main():
     parser.add_argument(
         '--image',
         '-i',
-        default=os.path.join(PKG_SRC, 'resource', 'sample_workspace.jpg'),
-        help='Path to input test image (default: sample_workspace.jpg)',
+        default=os.path.join(PKG_SRC, 'resource', 'sample_workspace.png'),
+        help='Path to input test image (default: sample_workspace.png)',
     )
     parser.add_argument(
         '--conf',

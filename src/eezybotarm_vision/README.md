@@ -1,11 +1,11 @@
 # eezybotarm_vision
 
-Computer vision, zone detection, and sorting coordination package for the EezyBotArm robotic manipulator.
+Computer vision, zone calibration, and sorting coordination package for the EezyBotArm robotic manipulator.
 
 ## Overview
-* **Object Detection**: Detects `green_cube` and `white_cube` objects with orientation angles using **NVIDIA TensorRT** (`.engine`).
-* **Zone Calibration**: Uses homography transformation to map image pixel space to metric coordinates on the workspace paper sheet (`left`, `middle`, `right` zones).
-* **Sorting Coordinator**: Coordinates vision detection and triggers MoveIt pick-and-place action requests.
+* **Object Detection**: Detects `green_cube` and `white_cube` objects with orientation angles using **NVIDIA TensorRT** (`.engine`) on Jetson or **ONNX Runtime** (`.onnx`) on workstations.
+* **Zone Calibration**: Detects the 4 corner ring fiducial stickers on the table surface and computes a homography transformation to project 3 virtual zones (`left`, `middle`, `right`) in metric coordinates.
+* **Sorting Coordinator**: Tracks cube stability in the middle zone and dispatches MoveIt pick-and-place action requests.
 
 ---
 
@@ -35,7 +35,7 @@ trtexec --onnx=src/eezybotarm_vision/models/model.onnx \
 ### On Jetson (Target Embedded Device)
 The Yocto image automatically handles this on first boot:
 * `recipes-model/cube-detection-model` places `model.engine` into `/usr/share/models/model.engine`.
-* `sorting_node` auto-discovers `/usr/share/models/model.engine` on startup.
+* `sorting_node` loads `/usr/share/models/model.engine` on startup.
 
 ---
 
@@ -43,13 +43,13 @@ The Yocto image automatically handles this on first boot:
 
 ### Benchmark & Inference Test
 ```bash
-./docker-run.sh python3 scripts/test_yolo_inference.py --weights src/eezybotarm_vision/models/model.engine
+./docker-run.sh python3 scripts/test_yolo_inference.py
 ```
 
 ### Launch Vision Node (Mock Camera)
 ```bash
 ./docker-run.sh ros2 launch eezybotarm_vision vision.launch.py \
-    weights_path:=/workspaces/src/eezybotarm_vision/models/model.engine \
+    weights_path:=/workspaces/src/eezybotarm_vision/models/model.onnx \
     use_mock_camera:=true gui:=true
 ```
 

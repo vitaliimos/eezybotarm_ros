@@ -1,10 +1,12 @@
-"""Coordinate mapping from paper workspace coordinates to robot base_link frame."""
+"""Coordinate mapping from table workspace coordinates to robot base_link frame."""
 
 from geometry_msgs.msg import PoseStamped
 
 
 class CoordinateMapper:
-    """Maps paper workspace (x_mm, y_mm) coordinates to robot base_link poses."""
+    """Maps table workspace (x_mm, y_mm) coordinates to robot base_link poses."""
+
+    ZONE_MULTIPLIERS = {'left': 0.5, 'middle': 1.5, 'right': 2.5}
 
     def __init__(
         self,
@@ -21,21 +23,16 @@ class CoordinateMapper:
         self.table_depth_m = table_depth_m
         self.table_width_mm = table_width_m * 1000.0
         self.table_depth_mm = table_depth_m * 1000.0
-        # Aliases for zone detector compatibility
-        self.paper_width_mm = self.table_width_mm
-        self.paper_height_mm = self.table_depth_mm
         self.robot_x_offset_m = robot_x_offset_m
         self.robot_y_offset_m = robot_y_offset_m
         self.table_z_m = table_z_m
         self.cube_height_m = cube_height_m
         self.sticker_width_m = sticker_width_m
         self.sticker_height_m = sticker_height_m
-        self.sticker_width_mm = sticker_width_m * 1000.0
-        self.sticker_height_mm = sticker_height_m * 1000.0
-        self.marker_inset_x_mm = self.sticker_width_mm / 2.0
-        self.marker_inset_y_mm = self.sticker_height_mm / 2.0
+        self.marker_inset_x_mm = (sticker_width_m * 1000.0) / 2.0
+        self.marker_inset_y_mm = (sticker_height_m * 1000.0) / 2.0
 
-    def paper_to_robot_xyz(self, x_mm: float, y_mm: float) -> tuple[float, float, float]:
+    def table_to_robot_xyz(self, x_mm: float, y_mm: float) -> tuple[float, float, float]:
         """Convert table coordinates (mm) to robot base_link frame (meters)."""
         x_robot = self.robot_x_offset_m + (y_mm / 1000.0)
         center_x_mm = self.table_width_mm / 2.0
@@ -44,11 +41,12 @@ class CoordinateMapper:
         return x_robot, y_robot, z_robot
 
     def get_zone_center_robot_xyz(self, zone_name: str) -> tuple[float, float, float]:
-        """Get pre-calculated center of specified zone in robot base_link coordinates."""
-        zone_width = self.table_width_mm / 3.0
-        zone_multipliers = {'left': 0.5, 'middle': 1.5, 'right': 2.5}
-        multiplier = zone_multipliers.get(zone_name, 1.5)
-        return self.paper_to_robot_xyz(zone_width * multiplier, self.table_depth_mm / 2.0)
+        """Get center of the specified zone in robot base_link coordinates."""
+        if zone_name not in self.ZONE_MULTIPLIERS:
+            raise ValueError(f"Unknown zone: '{zone_name}'")
+        zone_width_mm = self.table_width_mm / 3.0
+        x_mm = zone_width_mm * self.ZONE_MULTIPLIERS[zone_name]
+        return self.table_to_robot_xyz(x_mm, self.table_depth_mm / 2.0)
 
     def create_pose_stamped(
         self,
@@ -57,7 +55,7 @@ class CoordinateMapper:
         z_m: float,
         frame_id: str = 'base_link',
     ) -> PoseStamped:
-        """Create a PoseStamped for MoveIt 2 Cartesian planning."""
+        """Create a PoseStamped for MoveIt 2 planning."""
         pose = PoseStamped()
         pose.header.frame_id = frame_id
         pose.pose.position.x = x_m
