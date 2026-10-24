@@ -50,6 +50,7 @@ def test_dashboard_page_build():
         Parameter('robot_y_offset_m', Parameter.Type.DOUBLE, 0.0),
         Parameter('table_z_m', Parameter.Type.DOUBLE, 0.095),
         Parameter('cube_height_m', Parameter.Type.DOUBLE, 0.025),
+        Parameter('dataset_dir', Parameter.Type.STRING, '/tmp/test_dataset'),
     ]
     node = EezybotDashboardNode(parameter_overrides=params)
 

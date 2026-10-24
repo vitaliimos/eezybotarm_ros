@@ -10,6 +10,7 @@ def generate_launch_description():
     port = LaunchConfiguration('port')
     camera_raw_topic = LaunchConfiguration('camera_raw_topic')
     camera_debug_topic = LaunchConfiguration('camera_debug_topic')
+    dataset_dir = LaunchConfiguration('dataset_dir')
     environment_config = LaunchConfiguration('environment_config')
 
     default_env_config = PathJoinSubstitution([
@@ -28,6 +29,7 @@ def generate_launch_description():
                 'port': port,
                 'camera_raw_topic': camera_raw_topic,
                 'camera_debug_topic': camera_debug_topic,
+                'dataset_dir': dataset_dir,
             },
         ],
     )
@@ -57,6 +59,11 @@ def generate_launch_description():
             'camera_debug_topic',
             default_value='/eezybotarm_vision/debug_image/compressed',
             description='Topic name for annotated debug image stream',
+        ),
+        DeclareLaunchArgument(
+            'dataset_dir',
+            default_value='dataset',
+            description='Directory where captured dataset images are stored',
         ),
         dashboard_node,
     ])

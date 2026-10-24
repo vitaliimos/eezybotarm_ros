@@ -1,10 +1,14 @@
 """NiceGUI Web Dashboard ROS 2 Node for EezyBotArm."""
 
 import asyncio
+from datetime import datetime
+import io
 import math
+from pathlib import Path
 import threading
 import time
 from typing import Optional
+import zipfile
 
 from builtin_interfaces.msg import Duration
 import cv2
@@ -12,7 +16,7 @@ from cv_bridge import CvBridge
 from eezybotarm_interfaces.action import PickObject
 from fastapi.responses import Response, StreamingResponse
 from geometry_msgs.msg import PoseStamped
-from nicegui import app, ui
+from nicegui import app, ui, events
 import numpy as np
 import rclpy
 from rclpy.action import ActionClient
@@ -35,6 +39,7 @@ class EezybotDashboardNode(Node):
         self.declare_parameter('port', Parameter.Type.INTEGER)
         self.declare_parameter('camera_raw_topic', Parameter.Type.STRING)
         self.declare_parameter('camera_debug_topic', Parameter.Type.STRING)
+        self.declare_parameter('dataset_dir', Parameter.Type.STRING)
 
         # Physical workspace parameters (supplied via environment.yaml)
         self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
@@ -48,6 +53,7 @@ class EezybotDashboardNode(Node):
         self.port = self.get_parameter('port').value
         raw_topic = self.get_parameter('camera_raw_topic').value
         debug_topic = self.get_parameter('camera_debug_topic').value
+        self.dataset_dir = Path(self.get_parameter('dataset_dir').value).expanduser().resolve()
 
         self.table_width_m = self.get_parameter('table_width_m').value
         self.table_depth_m = self.get_parameter('table_depth_m').value
@@ -148,7 +154,7 @@ class EezybotDashboardNode(Node):
     def _raw_image_callback(self, msg: Image, is_debug: bool):
         try:
             cv_img = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            _, buffer = cv2.imencode('.jpg', cv_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            _, buffer = cv2.imencode('.jpg', cv_img, [cv2.IMWRITE_JPEG_QUALITY, 95])
             jpeg_bytes = buffer.tobytes()
             with self._frame_lock:
                 if is_debug:
@@ -185,6 +191,54 @@ class EezybotDashboardNode(Node):
         cv2.putText(img, 'No Camera Signal', (70, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
         _, buf = cv2.imencode('.jpg', img)
         return buf.tobytes()
+
+    def capture_frame(self) -> tuple[bool, str, int]:
+        """Save current raw camera frame to dataset_dir.
+
+        Returns:
+            (success: bool, message: str, total_count: int)
+        """
+        with self._frame_lock:
+            frame = self._raw_frame
+
+        if frame is None:
+            return False, 'No camera frame received yet', self.get_dataset_count()
+
+        try:
+            self.dataset_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+            filename = f'frame_{timestamp}.jpg'
+            filepath = self.dataset_dir / filename
+
+            with open(filepath, 'wb') as f:
+                f.write(frame)
+
+            count = self.get_dataset_count()
+            self.get_logger().info(f'Captured dataset frame: {filepath} (total: {count})')
+            return True, filename, count
+        except Exception as exc:
+            self.get_logger().error(f'Failed to save dataset frame: {exc}')
+            return False, str(exc), self.get_dataset_count()
+
+    def get_dataset_count(self) -> int:
+        """Return number of JPEG frames currently stored in dataset_dir."""
+        if not self.dataset_dir.exists():
+            return 0
+        return len([f for f in self.dataset_dir.glob('*.jpg') if f.is_file()])
+
+    def create_dataset_zip(self) -> Optional[bytes]:
+        """Create an in-memory ZIP archive of all JPEG frames in dataset_dir."""
+        if not self.dataset_dir.exists():
+            return None
+        image_files = sorted(self.dataset_dir.glob('*.jpg'))
+        if not image_files:
+            return None
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for img_path in image_files:
+                zf.write(img_path, arcname=img_path.name)
+        return buf.getvalue()
 
     def send_gripper_command(self, position: float, duration_sec: float = 0.5):
         traj = JointTrajectory()
@@ -330,6 +384,92 @@ def build_dashboard_ui(node: EezybotDashboardNode):
                     lambda e: video_img.set_source(f'/stream/video?type={e.value}&t={time.time()}')
                 )
 
+                # Dataset Collection Controls
+                ui.separator().classes('my-3')
+                with ui.row().classes('justify-between items-center w-full'):
+                    with ui.row().classes('items-center gap-3'):
+                        capture_btn = (
+                            ui.button('Capture Frame', icon='photo_camera', color='primary')
+                            .props('elevated')
+                            .tooltip('Press C on keyboard or click to capture raw frame')
+                        )
+                        ui.badge('Hotkey: C', color='blue-grey-6').classes(
+                            'text-xs px-2 py-1 font-mono'
+                        )
+                        sound_switch = (
+                            ui.switch('Sound', value=True)
+                            .props('dense')
+                            .tooltip('Звуковий сигнал під час зйомки кадру')
+                        )
+                        dataset_count_label = ui.label(
+                            f'Dataset: {node.get_dataset_count()} images'
+                        ).classes('text-sm font-semibold text-gray-700')
+
+                    download_btn = (
+                        ui.button('Download ZIP', icon='file_download', color='secondary')
+                        .props('outline')
+                        .tooltip('Download all collected images as a ZIP archive')
+                    )
+
+                last_capture_time = 0.0
+
+                def play_shutter_sound():
+                    ui.run_javascript("""
+                        try {
+                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(880, ctx.currentTime);
+                            osc.frequency.exponentialRampToValueAtTime(330, ctx.currentTime + 0.08);
+                            gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.08);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    """)
+
+                def do_capture():
+                    nonlocal last_capture_time
+                    now = time.time()
+                    if now - last_capture_time < 0.5:
+                        return  # Debounce 500ms
+                    last_capture_time = now
+
+                    success, msg, count = node.capture_frame()
+                    if success:
+                        dataset_count_label.set_text(f'Dataset: {count} images')
+                        ui.notify(f'Captured {msg} (#{count})', type='positive', position='top')
+                        if sound_switch.value:
+                            play_shutter_sound()
+                    else:
+                        ui.notify(f'Capture failed: {msg}', type='warning', position='top')
+
+                def do_download():
+                    if node.get_dataset_count() == 0:
+                        ui.notify(
+                            'Датасет порожній. Спочатку збережіть кадри.',
+                            type='warning',
+                            position='top',
+                        )
+                        return
+                    ui.download('/dataset/download')
+
+                capture_btn.on_click(do_capture)
+                download_btn.on_click(do_download)
+
+                def handle_key(e: events.KeyEventArguments):
+                    if not e.action.keydown:
+                        return
+                    if e.key == 'c':
+                        do_capture()
+
+                ui.keyboard(on_key=handle_key)
+
             # Robot Telemetry Card
             with ui.card().classes('w-full shadow-lg rounded-xl p-4'):
                 ui.label('Robot Telemetry').classes('text-lg font-semibold mb-3')
@@ -474,6 +614,18 @@ def main(args=None):
                 await asyncio.sleep(0.04)
 
         return StreamingResponse(frame_gen(), media_type='multipart/x-mixed-replace; boundary=frame')
+
+    # FastAPI Dataset Download Endpoint
+    @app.get('/dataset/download')
+    def download_dataset():
+        zip_bytes = node.create_dataset_zip()
+        if not zip_bytes:
+            return Response(content='No dataset images found to download', status_code=404)
+        return Response(
+            content=zip_bytes,
+            media_type='application/zip',
+            headers={'Content-Disposition': 'attachment; filename="eezybot_dataset.zip"'},
+        )
 
     # Setup NiceGUI pages
     @ui.page('/')
