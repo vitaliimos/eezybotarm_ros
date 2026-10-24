@@ -36,7 +36,6 @@ def test_letterbox_16_9_inverse_mapping():
     det.conf_threshold = 0.5
     det.iou_threshold = 0.45
     fake_out = np.array([[[320.0, 320.0, 64.0, 64.0, 0.98, 0.0, 0.1]]], dtype=np.float32)
-    fake_out = np.transpose(fake_out, (0, 2, 1))
     results = det._postprocess(fake_out, scale, pad_x, pad_y, orig_w, orig_h)
 
     assert len(results) == 1
@@ -54,19 +53,19 @@ def test_postprocess_yolo_obb_format():
     detector.conf_threshold = 0.5
     detector.iou_threshold = 0.45
 
-    out = np.zeros((1, 7, 8400), dtype=np.float32)
+    out = np.zeros((1, 300, 7), dtype=np.float32)
 
-    # Box 1: White cube at (320, 320), size (50, 50), conf 0.85
-    out[0, :7, 100] = [320.0, 320.0, 50.0, 50.0, 0.05, 0.85, 0.0]
+    # Box 1: White cube at (320, 320), size (50, 50), conf 0.85, class 1
+    out[0, 100] = [320.0, 320.0, 50.0, 50.0, 0.85, 1.0, 0.0]
 
     # Box 2: Duplicate of Box 1 with lower confidence (suppressed by NMS)
-    out[0, :7, 101] = [322.0, 321.0, 50.0, 50.0, 0.02, 0.65, 0.0]
+    out[0, 101] = [322.0, 321.0, 50.0, 50.0, 0.65, 1.0, 0.0]
 
     # Box 3: Below confidence threshold (filtered out)
-    out[0, :7, 200] = [100.0, 100.0, 40.0, 40.0, 0.30, 0.10, 0.0]
+    out[0, 200] = [100.0, 100.0, 40.0, 40.0, 0.30, 0.0, 0.0]
 
-    # Box 4: Green cube elsewhere, conf 0.90
-    out[0, :7, 300] = [200.0, 150.0, 60.0, 60.0, 0.90, 0.05, 0.25]
+    # Box 4: Green cube elsewhere, conf 0.90, class 0
+    out[0, 250] = [200.0, 150.0, 60.0, 60.0, 0.90, 0.0, 0.25]
 
     detections = detector._postprocess(out, 1.0, 0.0, 0.0, 640, 640)
     assert len(detections) == 2
@@ -95,7 +94,7 @@ def test_postprocess_empty_and_none():
 
     assert detector._postprocess(None, 1.0, 0, 0, 640, 640) == []
     assert detector._postprocess([], 1.0, 0, 0, 640, 640) == []
-    assert detector._postprocess(np.zeros((1, 7, 8400)), 1.0, 0, 0, 640, 640) == []
+    assert detector._postprocess(np.zeros((1, 300, 7)), 1.0, 0, 0, 640, 640) == []
 
 
 def test_onnx_runner_basic_opt_and_cpu_fallback(monkeypatch):

@@ -9,6 +9,29 @@ Computer vision, zone calibration, and sorting coordination package for the Eezy
 
 ---
 
+## Model Requirements & Export
+
+The detector (`YoloCubeDetector`) expects an **NMS-free (End-to-End)** YOLO-OBB model (such as YOLO26m-obb):
+* **Input Tensor**: `images` with shape `[1, 3, 640, 640]` (RGB, FP32 normalized to `[0, 1]`).
+* **Output Tensor**: `output0` with shape `[1, N, 7]` (e.g. `[1, 300, 7]`) containing decoded detections:
+  `[cx, cy, w, h, score, class_id, angle_rad]`.
+
+> **Important**: When exporting the model from Ultralytics to ONNX, **`nms=False` must be explicitly set**:
+> ```python
+> model.export(
+>     format="onnx",
+>     imgsz=640,
+>     dynamic=False,
+>     simplify=True,
+>     opset=17,
+>     batch=1,
+>     nms=False,  # Required: enables the NMS-free / End-to-End head [1, 300, 7]
+> )
+> ```
+> If `nms=False` is omitted, Ultralytics exports the raw anchor grid `[1, 7, 8400]`, which results in invalid detection dimensions and scrambled class IDs.
+
+---
+
 ## TensorRT Model Preparation
 
 TensorRT engines are specific to the exact GPU architecture and runtime version.

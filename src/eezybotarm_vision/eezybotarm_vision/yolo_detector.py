@@ -101,15 +101,13 @@ class YoloCubeDetector:
         if out is None or len(out) == 0:
             return []
 
-        # yolo26-obb output format: [1, 7, 8400] -> transpose to [8400, 7]
-        # Columns: cx, cy, w, h, score_green, score_white, angle
-        preds = out[0].T
+        # YOLO26-OBB (ONNX / TensorRT) format: [1, N, 7]
+        # Columns: cx, cy, w, h, score, class_id, angle
+        preds = out[0]
         boxes = preds[:, :4]
-        cls_scores = preds[:, 4:6]
+        confidences = preds[:, 4]
+        cls_ids = preds[:, 5].astype(int)
         angles = preds[:, 6]
-
-        confidences = np.max(cls_scores, axis=1)
-        cls_ids = np.argmax(cls_scores, axis=1)
 
         mask = confidences >= self.conf_threshold
         if not np.any(mask):
