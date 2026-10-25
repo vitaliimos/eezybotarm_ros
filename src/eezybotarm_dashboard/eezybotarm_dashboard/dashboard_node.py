@@ -289,7 +289,6 @@ class EezybotDashboardNode(Node):
 
         goal_msg = PickObject.Goal()
         goal_msg.object_class = 'cube'
-        goal_msg.approach_distance = 0.04
 
         # Pick pose
         goal_msg.target_pose.header.frame_id = 'base_link'

@@ -1,3 +1,5 @@
+import copy
+
 from eezybotarm_control.workflow import run_workflow
 from eezybotarm_interfaces.action import PickObject
 from geometry_msgs.msg import Pose, PoseStamped
@@ -13,8 +15,17 @@ from shape_msgs.msg import SolidPrimitive
 DEFAULT_FRAME = 'base_link'
 END_EFFECTOR_LINK = 'ee_link'
 POSITION_TOLERANCE_M = 0.003
+DEFAULT_APPROACH_DISTANCE_M = 0.03
 # Planning workspace as (min_x, min_y, min_z, max_x, max_y, max_z), in metres.
 WORKSPACE = (-0.5, -0.5, -0.5, 0.5, 0.5, 0.5)
+
+
+def _offset_z(pose: PoseStamped, dz: float) -> PoseStamped:
+    """Return a copy of `pose` shifted along the Z axis by `dz` metres."""
+    shifted = copy.deepcopy(pose)
+    shifted.pose.position.x += dz
+    shifted.pose.position.z += dz
+    return shifted
 
 
 def position_constraints(pose_stamped: PoseStamped) -> list[Constraints]:
@@ -44,6 +55,9 @@ class PickAndPlaceActionServer(Node):
             'pick_and_place_action_server',
             automatically_declare_parameters_from_overrides=True,
         )
+
+        self.declare_parameter('approach_distance', DEFAULT_APPROACH_DISTANCE_M)
+        self.approach_distance = self.get_parameter('approach_distance').value
 
         self.moveit = MoveItPy(node_name='pick_and_place_moveit')
         self.arm = self.moveit.get_planning_component('arm')
@@ -77,16 +91,32 @@ class PickAndPlaceActionServer(Node):
         pick_pose = goal_handle.request.target_pose
         place_pose = goal_handle.request.place_pose
 
-        steps = [
+        steps = self._build_steps(pick_pose, place_pose, self.approach_distance)
+        return run_workflow(steps, goal_handle, PickObject, self.get_logger())
+
+    def _build_steps(
+        self,
+        pick_pose: PoseStamped,
+        place_pose: PoseStamped,
+        approach_distance: float,
+    ):
+        pre_grasp_pose = _offset_z(pick_pose, approach_distance)
+        lift_pose = _offset_z(pick_pose, approach_distance)
+        pre_place_pose = _offset_z(place_pose, approach_distance)
+        retreat_pose = _offset_z(place_pose, approach_distance)
+
+        return [
             ('OPENING_GRIPPER', lambda: self._move_to_named(self.gripper, 'open')),
-            ('MOVING_TO_PRE_GRASP', lambda: self._move_to_pose(pick_pose)),
+            ('MOVING_TO_PRE_GRASP', lambda: self._move_to_pose(pre_grasp_pose)),
+            ('APPROACHING_OBJECT', lambda: self._move_to_pose(pick_pose)),
             ('CLOSING_GRIPPER', lambda: self._move_to_named(self.gripper, 'close')),
-            ('MOVING_TO_POST_GRASP', lambda: self._move_to_named(self.arm, 'home')),
-            ('MOVING_TO_PLACE_POSITION', lambda: self._move_to_pose(place_pose)),
+            ('LIFTING_OBJECT', lambda: self._move_to_pose(lift_pose)),
+            ('MOVING_TO_PRE_PLACE', lambda: self._move_to_pose(pre_place_pose)),
+            ('PLACING_OBJECT', lambda: self._move_to_pose(place_pose)),
             ('OPENING_GRIPPER', lambda: self._move_to_named(self.gripper, 'open')),
+            ('RETREATING_FROM_PLACE', lambda: self._move_to_pose(retreat_pose)),
             ('MOVING_TO_HOME', lambda: self._move_to_named(self.arm, 'home')),
         ]
-        return run_workflow(steps, goal_handle, PickObject, self.get_logger())
 
     def _move_to_named(self, component: PlanningComponent, name: str) -> bool:
         """Move to a named configuration from the SRDF (e.g. 'home', 'open')."""

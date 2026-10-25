@@ -23,7 +23,6 @@ def generate_launch_description():
     mock_image_path = LaunchConfiguration('mock_image_path')
     weights_path = LaunchConfiguration('weights_path')
     gui = LaunchConfiguration('gui')
-    use_rviz = LaunchConfiguration('use_rviz')
 
     # Condition: start_camera is true AND use_mock_camera is false
     run_real_camera = IfCondition(
@@ -99,15 +98,6 @@ def generate_launch_description():
         output='screen',
     )
 
-    # 5. Optional RViz2 for 3D marker visualization
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        condition=IfCondition(use_rviz),
-        output='screen',
-    )
-
     return LaunchDescription([
         DeclareLaunchArgument(
             'config_file',
@@ -149,14 +139,8 @@ def generate_launch_description():
             default_value='false',
             description='Launch rqt_image_view to preview the annotated debug image',
         ),
-        DeclareLaunchArgument(
-            'use_rviz',
-            default_value='false',
-            description='Launch RViz for 3D marker visualization',
-        ),
         real_camera_node,
         mock_camera_node,
         sorting_node,
         rqt_image_view_node,
-        rviz_node,
     ])

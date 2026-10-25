@@ -118,8 +118,6 @@ def generate_launch_description():
             'start_camera': start_camera,
             'video_device': video_device,
             'weights_path': weights_path,
-            'use_rviz': 'false',
-            'gui': 'false',
         }.items(),
         condition=IfCondition(use_vision),
     )

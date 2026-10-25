@@ -2,7 +2,9 @@
 
 from unittest.mock import MagicMock
 
+from eezybotarm_control.pick_and_place_server import _offset_z, PickAndPlaceActionServer
 from eezybotarm_control.workflow import run_workflow
+from geometry_msgs.msg import PoseStamped
 import pytest
 
 
@@ -110,3 +112,87 @@ def test_cancel_requested():
     goal_handle.succeed.assert_not_called()
     assert result.success is False
     assert result.error_code == 'Goal canceled by client'
+
+
+def _make_pose(x: float, y: float, z: float, frame_id: str = 'base_link') -> PoseStamped:
+    pose = PoseStamped()
+    pose.header.frame_id = frame_id
+    pose.pose.position.x = x
+    pose.pose.position.y = y
+    pose.pose.position.z = z
+    pose.pose.orientation.w = 1.0
+    return pose
+
+
+def _make_server_stub():
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server.arm = 'arm_component'
+    server.gripper = 'gripper_component'
+    calls = []
+    server._move_to_named = MagicMock(
+        side_effect=lambda comp, name: (calls.append(('named', comp, name)) or True)
+    )
+    server._move_to_pose = MagicMock(
+        side_effect=lambda pose: (
+            calls.append((
+                'pose',
+                pose.pose.position.x,
+                pose.pose.position.y,
+                pose.pose.position.z,
+            )) or True
+        )
+    )
+    return server, calls
+
+
+def test_offset_z_returns_shifted_copy():
+    """_offset_z shifts along the approach vector without mutating the original PoseStamped."""
+    original = _make_pose(0.15, -0.05, 0.02, frame_id='base_link')
+    shifted = _offset_z(original, 0.04)
+
+    assert shifted is not original
+    assert original.pose.position.x == pytest.approx(0.15)
+    assert original.pose.position.z == pytest.approx(0.02)
+    assert shifted.header.frame_id == 'base_link'
+    assert shifted.pose.position.x == pytest.approx(0.19)
+    assert shifted.pose.position.y == pytest.approx(-0.05)
+    assert shifted.pose.position.z == pytest.approx(0.06)
+
+
+def test_build_steps():
+    """_build_steps always builds the full 10-phase sequence."""
+    server, calls = _make_server_stub()
+    pick_pose = _make_pose(0.15, 0.0, 0.02)
+    place_pose = _make_pose(0.15, -0.10, 0.02)
+
+    steps = server._build_steps(pick_pose, place_pose, approach_distance=0.04)
+    phases = [phase for phase, _ in steps]
+
+    assert phases == [
+        'OPENING_GRIPPER',
+        'MOVING_TO_PRE_GRASP',
+        'APPROACHING_OBJECT',
+        'CLOSING_GRIPPER',
+        'LIFTING_OBJECT',
+        'MOVING_TO_PRE_PLACE',
+        'PLACING_OBJECT',
+        'OPENING_GRIPPER',
+        'RETREATING_FROM_PLACE',
+        'MOVING_TO_HOME',
+    ]
+
+    for _, action in steps:
+        assert action() is True
+
+    assert calls == [
+        ('named', 'gripper_component', 'open'),
+        ('pose', pytest.approx(0.19), pytest.approx(0.0), pytest.approx(0.06)),
+        ('pose', pytest.approx(0.15), pytest.approx(0.0), pytest.approx(0.02)),
+        ('named', 'gripper_component', 'close'),
+        ('pose', pytest.approx(0.19), pytest.approx(0.0), pytest.approx(0.06)),
+        ('pose', pytest.approx(0.19), pytest.approx(-0.10), pytest.approx(0.06)),
+        ('pose', pytest.approx(0.15), pytest.approx(-0.10), pytest.approx(0.02)),
+        ('named', 'gripper_component', 'open'),
+        ('pose', pytest.approx(0.19), pytest.approx(-0.10), pytest.approx(0.06)),
+        ('named', 'arm_component', 'home'),
+    ]

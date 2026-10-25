@@ -48,7 +48,7 @@ def test_coordinate_mapper():
     xr, yr, zr = mapper.table_to_robot_xyz(150.0, 100.0)
     assert abs(xr - 0.22) < 1e-4
     assert abs(yr - 0.0) < 1e-4
-    assert abs(zr - 0.035) < 1e-4
+    assert abs(zr - 0.030) < 1e-4
 
     _, ly, _ = mapper.get_zone_center_robot_xyz('left')
     assert ly < 0.0

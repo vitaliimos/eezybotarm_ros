@@ -36,7 +36,6 @@ class SortingCoordinatorNode(Node):
     """Orchestrate workspace calibration, cube detection, and pick-and-place actions."""
 
     TARGET_ZONE_BY_CLASS = {'white_cube': 'left', 'green_cube': 'right'}
-    APPROACH_DISTANCE_M = 0.05
 
     def __init__(self, **kwargs):
         super().__init__('sorting_coordinator_node', **kwargs)
@@ -327,7 +326,6 @@ class SortingCoordinatorNode(Node):
         goal.target_pose = pick_pose
         goal.place_pose = place_pose
         goal.object_class = det.class_name
-        goal.approach_distance = self.APPROACH_DISTANCE_M
 
         self.get_logger().info(
             f'Sending Goal: {det.class_name} | Pick: ({x_m:.2f}, {y_m:.2f}, {z_m:.2f}) -> '
