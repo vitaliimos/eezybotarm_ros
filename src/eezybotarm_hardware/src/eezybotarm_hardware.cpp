@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "pluginlib/class_list_macros.hpp"
@@ -85,6 +87,9 @@ EezyBotArmHardware::Servo parse_servo(const Params & params)
 
 double pulse_us(const EezyBotArmHardware::Servo & s, double joint_rad)
 {
+  if (!std::isfinite(joint_rad)) {
+    return s.us_min;
+  }
   const double actuator_rad = joint_rad * s.gear_ratio * (s.invert ? -1.0 : 1.0);
   const double t = std::clamp((actuator_rad - s.rad_min) / (s.rad_max - s.rad_min), 0.0, 1.0);
   return std::clamp(s.us_min + t * (s.us_max - s.us_min), kPulseSafetyMinUs, kPulseSafetyMaxUs);
@@ -110,10 +115,15 @@ CallbackReturn EezyBotArmHardware::on_init(
       throw std::runtime_error("pwm_frequency out of range (0, 1526]");
     }
 
+    std::unordered_set<int> used_channels;
     for (std::size_t i = 0; i < info_.joints.size(); i++) {
       const auto & joint = info_.joints[i];
       context = "joint '" + joint.name + "'";
-      servos_.push_back(parse_servo(joint.parameters));
+      const auto servo = parse_servo(joint.parameters);
+      if (!used_channels.insert(servo.channel).second) {
+        throw std::runtime_error("duplicate pca_channel " + std::to_string(servo.channel));
+      }
+      servos_.push_back(servo);
 
       for (const auto & state_if : joint.state_interfaces) {
         if (state_if.name == hardware_interface::HW_IF_POSITION &&
@@ -201,7 +211,11 @@ std::vector<hardware_interface::CommandInterface> EezyBotArmHardware::export_com
 hardware_interface::return_type EezyBotArmHardware::read(
   const rclcpp::Time &, const rclcpp::Duration &)
 {
-  hw_states_ = hw_commands_;
+  for (std::size_t i = 0; i < hw_commands_.size(); i++) {
+    if (std::isfinite(hw_commands_[i])) {
+      hw_states_[i] = hw_commands_[i];
+    }
+  }
   return hardware_interface::return_type::OK;
 }
 
@@ -209,6 +223,9 @@ hardware_interface::return_type EezyBotArmHardware::write(
   const rclcpp::Time &, const rclcpp::Duration &)
 {
   for (std::size_t i = 0; i < servos_.size(); i++) {
+    if (!std::isfinite(hw_commands_[i])) {
+      continue;
+    }
     pca_.set_pulse_us(servos_[i].channel, pulse_us(servos_[i], hw_commands_[i]));
   }
 

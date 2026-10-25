@@ -49,7 +49,7 @@ void Pca9685::open(const std::string & bus, int address, double pwm_frequency_hz
 
   const auto prescale = static_cast<std::uint8_t>(
     std::clamp(std::round(kOscillatorHz / (kResolution * pwm_frequency_hz)) - 1.0, 3.0, 255.0));
-  us_per_tick_ = 1e6 / (kResolution * pwm_frequency_hz);
+  us_per_tick_ = 1e6 * (static_cast<double>(prescale) + 1.0) / kOscillatorHz;
 
   // Prescale can only be written while the oscillator is asleep.
   bool ok = write_reg(kMode1, kMode1Sleep | kMode1AutoInc) &&
@@ -75,6 +75,9 @@ void Pca9685::close()
 
 void Pca9685::set_pulse_us(int channel, double pulse_us)
 {
+  if (!std::isfinite(pulse_us) || channel < 0 || channel >= kNumChannels) {
+    return;
+  }
   const auto ticks = static_cast<std::uint16_t>(
     std::clamp(std::lround(pulse_us / us_per_tick_), 0L, 4095L));
   max_channel_ = std::max(max_channel_, channel);
