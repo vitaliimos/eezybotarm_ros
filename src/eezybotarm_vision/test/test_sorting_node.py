@@ -18,7 +18,6 @@ def _make_test_node(**kwargs) -> SortingCoordinatorNode:
     params = [
         Parameter('weights_path', Parameter.Type.STRING, '/usr/share/models/model.engine'),
         Parameter('conf_threshold', Parameter.Type.DOUBLE, 0.5),
-        Parameter('iou_threshold', Parameter.Type.DOUBLE, 0.45),
         Parameter('stable_frames_required', Parameter.Type.INTEGER, 8),
         Parameter('cooldown_duration_sec', Parameter.Type.DOUBLE, 2.5),
         Parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER, 80),

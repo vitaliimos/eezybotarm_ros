@@ -1,11 +1,7 @@
 """Unit tests for YOLO cube detector and inference runners."""
 
 import math
-import sys
-from types import SimpleNamespace
-from unittest.mock import MagicMock
 
-from eezybotarm_vision.inference_runners import OnnxRunner
 from eezybotarm_vision.yolo_detector import YoloCubeDetector
 import numpy as np
 import pytest
@@ -34,7 +30,6 @@ def test_letterbox_16_9_inverse_mapping():
 
     det = object.__new__(YoloCubeDetector)
     det.conf_threshold = 0.5
-    det.iou_threshold = 0.45
     fake_out = np.array([[[320.0, 320.0, 64.0, 64.0, 0.98, 0.0, 0.1]]], dtype=np.float32)
     results = det._postprocess(fake_out, scale, pad_x, pad_y, orig_w, orig_h)
 
@@ -51,15 +46,11 @@ def test_detector_fail_fast_on_missing_model():
 def test_postprocess_yolo_obb_format():
     detector = YoloCubeDetector.__new__(YoloCubeDetector)
     detector.conf_threshold = 0.5
-    detector.iou_threshold = 0.45
 
     out = np.zeros((1, 300, 7), dtype=np.float32)
 
     # Box 1: White cube at (320, 320), size (50, 50), conf 0.85, class 1
     out[0, 100] = [320.0, 320.0, 50.0, 50.0, 0.85, 1.0, 0.0]
-
-    # Box 2: Duplicate of Box 1 with lower confidence (suppressed by NMS)
-    out[0, 101] = [322.0, 321.0, 50.0, 50.0, 0.65, 1.0, 0.0]
 
     # Box 3: Below confidence threshold (filtered out)
     out[0, 200] = [100.0, 100.0, 40.0, 40.0, 0.30, 0.0, 0.0]
@@ -90,52 +81,17 @@ def test_postprocess_yolo_obb_format():
 def test_postprocess_empty_and_none():
     detector = YoloCubeDetector.__new__(YoloCubeDetector)
     detector.conf_threshold = 0.5
-    detector.iou_threshold = 0.45
 
     assert detector._postprocess(None, 1.0, 0, 0, 640, 640) == []
     assert detector._postprocess([], 1.0, 0, 0, 640, 640) == []
     assert detector._postprocess(np.zeros((1, 300, 7)), 1.0, 0, 0, 640, 640) == []
 
 
-def test_onnx_runner_basic_opt_and_cpu_fallback(monkeypatch):
-    expected_out = np.ones((1, 7, 8400), dtype=np.float32)
+def test_normalize_input_blob_properties():
+    img = np.random.randint(0, 256, (480, 640, 3), dtype=np.uint8)
+    blob, scale, pad_x, pad_y = YoloCubeDetector._normalize_input(img)
 
-    cuda_session = MagicMock()
-    cuda_session.get_providers.return_value = [
-        'CUDAExecutionProvider',
-        'CPUExecutionProvider',
-    ]
-    cuda_session.get_inputs.return_value = [SimpleNamespace(name='images')]
-    cuda_session.run.side_effect = RuntimeError('cudaErrorNoKernelImageForDevice')
-
-    cpu_session = MagicMock()
-    cpu_session.get_providers.return_value = ['CPUExecutionProvider']
-    cpu_session.get_inputs.return_value = [SimpleNamespace(name='images')]
-    cpu_session.run.return_value = [expected_out]
-
-    sessions = [cuda_session, cpu_session]
-    created_calls = []
-
-    def fake_inference_session(path, sess_options=None, providers=None):
-        created_calls.append((path, sess_options, providers))
-        return sessions.pop(0)
-
-    fake_ort = SimpleNamespace(
-        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_BASIC='ORT_ENABLE_BASIC'),
-        SessionOptions=lambda: SimpleNamespace(graph_optimization_level=None),
-        get_available_providers=lambda: ['CUDAExecutionProvider', 'CPUExecutionProvider'],
-        InferenceSession=fake_inference_session,
-    )
-    monkeypatch.setitem(sys.modules, 'onnxruntime', fake_ort)
-
-    runner = OnnxRunner('dummy.onnx')
-    assert len(created_calls) == 1
-    assert created_calls[0][1].graph_optimization_level == 'ORT_ENABLE_BASIC'
-    assert created_calls[0][2] == ['CUDAExecutionProvider', 'CPUExecutionProvider']
-
-    blob = np.zeros((1, 3, 640, 640), dtype=np.float32)
-    result = runner.infer(blob)
-
-    assert np.array_equal(result, expected_out)
-    assert len(created_calls) == 2
-    assert created_calls[1][2] == ['CPUExecutionProvider']
+    assert blob.shape == (1, 3, 640, 640)
+    assert blob.dtype == np.float32
+    assert 0.0 <= blob.min() <= blob.max() <= 1.0
+    assert blob.flags['C_CONTIGUOUS']

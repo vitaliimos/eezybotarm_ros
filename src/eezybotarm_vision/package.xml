@@ -22,7 +22,7 @@
   <exec_depend>compressed_image_transport</exec_depend>
   <exec_depend>python3-onnxruntime</exec_depend>
   <exec_depend>python3-tensorrt</exec_depend>
-  <exec_depend>cuda-cudart</exec_depend>
+  <exec_depend>python3-cuda-python</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

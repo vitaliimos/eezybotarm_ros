@@ -24,7 +24,6 @@ sorting_coordinator_node:
     # Path to TensorRT engine (.engine). Default target location on Jetson.
     weights_path: "/usr/share/models/model.engine"
     conf_threshold: 0.5
-    iou_threshold: 0.45
     stable_frames_required: 8
     cooldown_duration_sec: 2.5
     action_name: "pick_and_place"

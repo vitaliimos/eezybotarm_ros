@@ -31,11 +31,9 @@ class YoloCubeDetector:
         self,
         weights_path: str = '',
         conf_threshold: float = 0.5,
-        iou_threshold: float = 0.45,
     ):
         self.weights_path = weights_path
         self.conf_threshold = conf_threshold
-        self.iou_threshold = iou_threshold
         self._runner = create_inference_runner(weights_path)
 
     @staticmethod
@@ -75,9 +73,13 @@ class YoloCubeDetector:
     @classmethod
     def _normalize_input(cls, image: np.ndarray) -> tuple[np.ndarray, float, float, float]:
         padded, scale, pad_x, pad_y = cls._letterbox(image, cls.INPUT_SHAPE)
-        blob = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
-        blob = blob.transpose(2, 0, 1).astype(np.float32) / 255.0
-        blob = np.ascontiguousarray(np.expand_dims(blob, axis=0))
+        blob = cv2.dnn.blobFromImage(
+            padded,
+            scalefactor=1.0 / 255.0,
+            size=cls.INPUT_SHAPE,
+            swapRB=True,
+            crop=False,
+        )
         return blob, scale, pad_x, pad_y
 
     def predict(self, image: np.ndarray) -> list[CubeDetection]:
@@ -125,60 +127,30 @@ class YoloCubeDetector:
 
         cos_val = np.cos(angles)
         sin_val = np.sin(angles)
-        vec1_x, vec1_y = (w / 2.0) * cos_val, (w / 2.0) * sin_val
-        vec2_x, vec2_y = -(h / 2.0) * sin_val, (h / 2.0) * cos_val
+        v1 = np.stack([(w / 2.0) * cos_val, (w / 2.0) * sin_val], axis=1)
+        v2 = np.stack([-(h / 2.0) * sin_val, (h / 2.0) * cos_val], axis=1)
+        center = np.stack([cx, cy], axis=1)
+        corners = np.stack(
+            [center + v1 + v2, center + v1 - v2, center - v1 - v2, center - v1 + v2],
+            axis=1,
+        )  # (N, 4, 2)
 
-        p1_x, p1_y = cx + vec1_x + vec2_x, cy + vec1_y + vec2_y
-        p2_x, p2_y = cx + vec1_x - vec2_x, cy + vec1_y - vec2_y
-        p3_x, p3_y = cx - vec1_x - vec2_x, cy - vec1_y - vec2_y
-        p4_x, p4_y = cx - vec1_x + vec2_x, cy - vec1_y + vec2_y
+        mins = np.clip(corners.min(axis=1), 0.0, [orig_w, orig_h])
+        maxs = np.clip(corners.max(axis=1), 0.0, [orig_w, orig_h])
 
-        corners_x = np.stack([p1_x, p2_x, p3_x, p4_x], axis=0)
-        corners_y = np.stack([p1_y, p2_y, p3_y, p4_y], axis=0)
-
-        min_x = np.clip(corners_x.min(axis=0), 0.0, float(orig_w))
-        min_y = np.clip(corners_y.min(axis=0), 0.0, float(orig_h))
-        max_x = np.clip(corners_x.max(axis=0), 0.0, float(orig_w))
-        max_y = np.clip(corners_y.max(axis=0), 0.0, float(orig_h))
-
-        nms_boxes = np.stack([min_x, min_y, max_x - min_x, max_y - min_y], axis=1)
-
-        keep_indices = []
-        for c in np.unique(cls_ids):
-            c_mask = np.where(cls_ids == c)[0]
-            c_keep = cv2.dnn.NMSBoxes(
-                nms_boxes[c_mask],
-                confidences[c_mask],
-                score_threshold=float(self.conf_threshold),
-                nms_threshold=float(self.iou_threshold),
+        detections = [
+            CubeDetection(
+                class_id=int(cls_ids[i]),
+                class_name=self.CLASS_NAMES.get(int(cls_ids[i]), f'class_{int(cls_ids[i])}'),
+                confidence=float(confidences[i]),
+                bbox_xyxy=(
+                    float(mins[i, 0]), float(mins[i, 1]), float(maxs[i, 0]), float(maxs[i, 1])
+                ),
+                center_px=(float(cx[i]), float(cy[i])),
+                angle=float(angles[i]),
+                corners=tuple((float(x), float(y)) for x, y in corners[i]),
             )
-            if len(c_keep) > 0:
-                keep_indices.extend(c_mask[np.array(c_keep).reshape(-1)])
-
-        detections: list[CubeDetection] = []
-        for idx in keep_indices:
-            cls_id = int(cls_ids[idx])
-            detections.append(
-                CubeDetection(
-                    class_id=cls_id,
-                    class_name=self.CLASS_NAMES.get(cls_id, f'class_{cls_id}'),
-                    confidence=float(confidences[idx]),
-                    bbox_xyxy=(
-                        float(min_x[idx]),
-                        float(min_y[idx]),
-                        float(max_x[idx]),
-                        float(max_y[idx]),
-                    ),
-                    center_px=(float(cx[idx]), float(cy[idx])),
-                    angle=float(angles[idx]),
-                    corners=(
-                        (float(p1_x[idx]), float(p1_y[idx])),
-                        (float(p2_x[idx]), float(p2_y[idx])),
-                        (float(p3_x[idx]), float(p3_y[idx])),
-                        (float(p4_x[idx]), float(p4_y[idx])),
-                    ),
-                )
-            )
-
+            for i in range(len(confidences))
+        ]
         detections.sort(key=lambda d: d.confidence, reverse=True)
         return detections

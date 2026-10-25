@@ -22,6 +22,14 @@ RUN apt-get update \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && rm -rf /var/lib/apt/lists/*
 
+# Install NVIDIA repository and trtexec (libnvinfer-bin)
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb \
+    && dpkg -i cuda-keyring_1.1-1_all.deb \
+    && rm cuda-keyring_1.1-1_all.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libnvinfer-bin \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p /etc/pip \
     && printf "[global]\nbreak-system-packages = true\n\n[install]\nignore-installed = true\n" > /etc/pip.conf \
     && printf "numpy<2\nsetuptools<70\n" > /etc/pip/constraints.txt

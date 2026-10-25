@@ -28,13 +28,12 @@ python3-tensorrt:
   oe:
     recipes: [python3-tensorrt]
 
-cuda-cudart:
+python3-cuda-python:
   ubuntu:
     pip:
-      packages: [nvidia-cuda-runtime]
+      packages: [cuda-python, nvidia-cuda-runtime]
   debian:
     pip:
-      packages: [nvidia-cuda-runtime]
+      packages: [cuda-python, nvidia-cuda-runtime]
   oe:
-    recipes: [cuda-cudart]
-
+    recipes: [python3-cuda-python]

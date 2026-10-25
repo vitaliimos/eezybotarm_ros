@@ -46,7 +46,6 @@ class SortingCoordinatorNode(Node):
         # Vision and coordinator parameters
         self.declare_parameter('weights_path', Parameter.Type.STRING)
         self.declare_parameter('conf_threshold', Parameter.Type.DOUBLE)
-        self.declare_parameter('iou_threshold', Parameter.Type.DOUBLE)
         self.declare_parameter('stable_frames_required', Parameter.Type.INTEGER)
         self.declare_parameter('cooldown_duration_sec', Parameter.Type.DOUBLE)
         self.declare_parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER)
@@ -66,7 +65,6 @@ class SortingCoordinatorNode(Node):
 
         weights_path = self.get_parameter('weights_path').value
         conf_thresh = self.get_parameter('conf_threshold').value
-        iou_thresh = self.get_parameter('iou_threshold').value
         self.stable_frames_required = self.get_parameter('stable_frames_required').value
         self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
         jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
@@ -90,7 +88,6 @@ class SortingCoordinatorNode(Node):
             self.detector = YoloCubeDetector(
                 weights_path=weights_path,
                 conf_threshold=conf_thresh,
-                iou_threshold=iou_thresh,
             )
             self.get_logger().info('Cube detector initialized successfully.')
         except Exception as exc:
