@@ -36,8 +36,8 @@
     <parent link="base_link" />
     <child link="turret_link" />
     <axis xyz="0 0 1" />
-    <limit effort="0" velocity="0"
-      lower="-1.2217" upper="1.2217"/>
+    <limit effort="1.5" velocity="1.57"
+      lower="-1.2" upper="1.2"/>
   </joint>
 
 <!--HIP-->
@@ -64,7 +64,7 @@
     <parent link="turret_link" />
     <child link="shoulder_link" />
     <axis xyz="0 1 0" />
-    <limit effort="0" velocity="0"
+    <limit effort="1.5" velocity="1.57"
       lower="-0.45" upper="0.80"/>
   </joint>
 
@@ -103,7 +103,7 @@
     <parent link="virtual_parallelogram_link" />
     <child link="forearm_link" />
     <axis xyz="0 1 0" />
-    <limit effort="0" velocity="0" lower="-0.25" upper="1.0"/>
+    <limit effort="1.5" velocity="1.57" lower="-0.25" upper="1.0"/>
   </joint>
 
 <!-- ELBOW -->
@@ -127,7 +127,7 @@
     <parent link="forearm_link" />
     <child link="wrist_link" />
     <axis xyz="0 1 0" />
-    <limit effort="0" velocity="0" lower="-3.14159" upper="3.14159"/>
+    <limit effort="1.5" velocity="1.57" lower="-3.14159" upper="3.14159"/>
     <mimic joint="elbow_joint" multiplier="-1" offset="0" />
   </joint>
 
@@ -176,7 +176,7 @@
     <parent link="claw_base"/>
     <child link="claw_l"/>
     <axis xyz="0 0 1" />
-    <limit effort="0" lower="0" upper="0.65" velocity="1.0" />
+    <limit effort="1.5" lower="0" upper="0.65" velocity="1.3" />
   </joint>
 
   <joint name="finger_right_joint" type="revolute">
@@ -184,7 +184,7 @@
     <parent link="claw_base"/>
     <child link="claw_r"/>
     <axis xyz="0 0 -1" />
-    <limit effort="0" lower="0" upper="0.65" velocity="1.0" />
+    <limit effort="1.5" lower="0" upper="0.65" velocity="1.3" />
     <mimic joint="finger_left_joint" multiplier="1.0" offset="0" />
   </joint>
 
@@ -220,7 +220,7 @@
 
   <!-- End-Effector frame for MoveIt -->
   <joint name="ee_joint" type="fixed">
-    <origin xyz="0.06 0 0" rpy="0 0 0" />
+    <origin xyz="0.07 0 0" rpy="0 0 0" />
     <parent link="claw_base" />
     <child link="ee_link" />
   </joint>

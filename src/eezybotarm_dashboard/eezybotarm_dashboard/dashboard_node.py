@@ -240,7 +240,7 @@ class EezybotDashboardNode(Node):
                 zf.write(img_path, arcname=img_path.name)
         return buf.getvalue()
 
-    def send_gripper_command(self, position: float, duration_sec: float = 0.5):
+    def send_gripper_command(self, position: float, duration_sec: float = 0.38):
         traj = JointTrajectory()
         traj.joint_names = ['finger_left_joint']
         point = JointTrajectoryPoint()

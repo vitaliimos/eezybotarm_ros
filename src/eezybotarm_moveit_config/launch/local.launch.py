@@ -10,6 +10,9 @@ def generate_launch_description():
     bringup = PathJoinSubstitution(
         [FindPackageShare('eezybotarm_moveit_config'), 'launch', 'bringup.launch.py']
     )
+    rviz_launch_file = PathJoinSubstitution(
+        [FindPackageShare('eezybotarm_moveit_config'), 'launch', 'rviz.launch.py']
+    )
     dashboard_launch_file = PathJoinSubstitution(
         [FindPackageShare('eezybotarm_dashboard'), 'launch', 'dashboard.launch.py']
     )
@@ -32,6 +35,10 @@ def generate_launch_description():
     dashboard_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(dashboard_launch_file),
         condition=IfCondition(start_dashboard),
+    )
+    rviz_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(rviz_launch_file),
+        condition=IfCondition(use_rviz),
     )
 
     return LaunchDescription([
@@ -97,7 +104,6 @@ def generate_launch_description():
                 'i2c_bus': i2c_bus,
                 'i2c_address': i2c_address,
                 'pwm_frequency': pwm_frequency,
-                'use_rviz': use_rviz,
                 'use_vision': use_vision,
                 'use_mock_camera': use_mock_camera,
                 'start_camera': start_camera,
@@ -106,4 +112,5 @@ def generate_launch_description():
             }.items(),
         ),
         dashboard_launch,
+        rviz_launch,
     ])

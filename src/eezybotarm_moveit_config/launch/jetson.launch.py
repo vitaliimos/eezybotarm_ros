@@ -66,7 +66,6 @@ def generate_launch_description():
             launch_arguments={
                 'use_mock_hardware': 'false',
                 'use_mock_camera': 'false',
-                'use_rviz': 'false',
                 'i2c_bus': i2c_bus,
                 'i2c_address': i2c_address,
                 'pwm_frequency': pwm_frequency,

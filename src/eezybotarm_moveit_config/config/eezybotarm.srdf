@@ -73,4 +73,23 @@
     <disable_collisions link1="base_link" link2="camera_stand" reason="Never"/>
     <disable_collisions link1="work_table" link2="camera_stand" reason="Never"/>
     <disable_collisions link1="turret_link" link2="base_board" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="turret_link" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="shoulder_link" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="forearm_link" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="wrist_link" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="claw_base" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="claw_l" reason="Never"/>
+    <disable_collisions link1="camera_stand" link2="claw_r" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="base_link" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="turret_link" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="shoulder_link" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="forearm_link" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="wrist_link" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="claw_base" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="claw_l" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="claw_r" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="base_board" reason="Never"/>
+    <disable_collisions link1="camera_link" link2="work_table" reason="Never"/>
+    <disable_collisions link1="work_table" link2="turret_link" reason="Never"/>
+    <disable_collisions link1="work_table" link2="shoulder_link" reason="Never"/>
 </robot>

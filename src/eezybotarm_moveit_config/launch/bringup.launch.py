@@ -14,7 +14,6 @@ def generate_launch_description():
     i2c_bus = LaunchConfiguration('i2c_bus')
     i2c_address = LaunchConfiguration('i2c_address')
     pwm_frequency = LaunchConfiguration('pwm_frequency')
-    use_rviz = LaunchConfiguration('use_rviz')
     use_vision = LaunchConfiguration('use_vision')
     use_mock_camera = LaunchConfiguration('use_mock_camera')
     start_camera = LaunchConfiguration('start_camera')
@@ -43,9 +42,6 @@ def generate_launch_description():
 
     controller_config = PathJoinSubstitution(
         [FindPackageShare('eezybotarm_moveit_config'), 'config', 'ros2_controllers.yaml']
-    )
-    rviz_config = PathJoinSubstitution(
-        [FindPackageShare('eezybotarm_moveit_config'), 'config', 'moveit.rviz']
     )
 
     robot_state_publisher = Node(
@@ -82,25 +78,6 @@ def generate_launch_description():
         package='controller_manager',
         executable='spawner',
         arguments=['hand_controller', '--controller-manager', '/controller_manager'],
-        output='screen',
-    )
-    move_group = Node(
-        package='moveit_ros_move_group',
-        executable='move_group',
-        parameters=[moveit_config.to_dict()],
-        output='screen',
-    )
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        arguments=['-d', rviz_config],
-        parameters=[
-            moveit_config.robot_description,
-            moveit_config.robot_description_semantic,
-            moveit_config.planning_pipelines,
-            moveit_config.robot_description_kinematics,
-        ],
-        condition=IfCondition(use_rviz),
         output='screen',
     )
     # MoveItCpp (used by moveit_py) reads `planning_pipelines.pipeline_names`, while the
@@ -169,11 +146,6 @@ def generate_launch_description():
             description='PWM frequency for servos in Hz',
         ),
         DeclareLaunchArgument(
-            'use_rviz',
-            default_value='false',
-            description='Launch RViz for visualization and debugging',
-        ),
-        DeclareLaunchArgument(
             'use_vision',
             default_value='true',
             description='Launch vision and sorting coordinator nodes',
@@ -209,8 +181,6 @@ def generate_launch_description():
         joint_state_broadcaster,
         start_arm_controller,
         start_hand_controller,
-        move_group,
-        rviz,
         pick_and_place_server,
         vision_launch,
     ])
