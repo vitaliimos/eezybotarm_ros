@@ -37,7 +37,7 @@ class CoordinateMapper:
         x_robot = self.robot_x_offset_m + (y_mm / 1000.0)
         center_x_mm = self.table_width_mm / 2.0
         y_robot = self.robot_y_offset_m + ((x_mm - center_x_mm) / 1000.0)
-        z_robot = self.table_z_m + (self.cube_height_m / 2.0)
+        z_robot = self.table_z_m + (self.cube_height_m / 3.0)
         return x_robot, y_robot, z_robot
 
     def get_zone_center_robot_xyz(self, zone_name: str) -> tuple[float, float, float]:

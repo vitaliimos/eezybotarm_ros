@@ -56,12 +56,12 @@
     </joint>
 
     <!-- Camera Stand (height 300 mm, triangular base width 125 mm along front edge) -->
-    <!-- Located at X = +0.400 m, Y = 0.0, Z center at +0.150 m -->
+    <!-- Located at X = +0.390 m, Y = 0.0, Z center at +0.150 m -->
     <link name="camera_stand">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <cylinder radius="0.0625" length="0.300"/>
+          <cylinder radius="0.05" length="0.300"/>
         </geometry>
         <material name="stand_green">
           <color rgba="0.15 0.30 0.15 1.0"/>
@@ -70,7 +70,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <cylinder radius="0.0625" length="0.300"/>
+          <cylinder radius="0.05" length="0.300"/>
         </geometry>
       </collision>
     </link>
@@ -78,7 +78,7 @@
     <joint name="${parent}_to_camera_stand" type="fixed">
       <parent link="${parent}"/>
       <child link="camera_stand"/>
-      <origin xyz="0.400 0.0 0.150" rpy="0 0 0"/>
+      <origin xyz="0.390 0.0 0.150" rpy="0 0 0"/>
     </joint>
 
     <!-- Camera Body Link mounted on top of the stand (Z = +0.150 relative to stand center, i.e., Z = +0.300 m) -->

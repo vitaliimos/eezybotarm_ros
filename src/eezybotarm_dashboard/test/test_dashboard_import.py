@@ -46,7 +46,7 @@ def test_dashboard_page_build():
         ),
         Parameter('table_width_m', Parameter.Type.DOUBLE, 0.300),
         Parameter('table_depth_m', Parameter.Type.DOUBLE, 0.200),
-        Parameter('robot_x_offset_m', Parameter.Type.DOUBLE, 0.127),
+        Parameter('robot_x_offset_m', Parameter.Type.DOUBLE, 0.102),
         Parameter('robot_y_offset_m', Parameter.Type.DOUBLE, 0.0),
         Parameter('table_z_m', Parameter.Type.DOUBLE, 0.095),
         Parameter('cube_height_m', Parameter.Type.DOUBLE, 0.025),

@@ -1,10 +1,10 @@
 /**:
   ros__parameters:
     # Table geometry and workspace
-    table_z_m: 0.095
+    table_z_m: 0.09
     table_depth_m: 0.200
     table_width_m: 0.300
-    robot_x_offset_m: 0.127
+    robot_x_offset_m: 0.102
     robot_y_offset_m: 0.0
     cube_height_m: 0.025
     # Corner sticker dimensions (horizontal placement flush with table corners)
