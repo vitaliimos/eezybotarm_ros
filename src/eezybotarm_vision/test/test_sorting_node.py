@@ -97,6 +97,7 @@ def test_initial_state_and_publishers(mock_detector):
     try:
         assert node.state == SortingState.CALIBRATING
         assert node.calibration is None
+        assert node.subscription.qos_profile.depth == 1
         assert node.visualizer.debug_image_pub.qos_profile.depth == 1
         assert node.visualizer.debug_compressed_pub.qos_profile.depth == 1
     finally:

@@ -101,7 +101,7 @@ class SortingCoordinatorNode(Node):
             Image,
             '/camera/image_raw',
             self.image_callback,
-            10,
+            1,
         )
         self.visualizer = DebugVisualizer(node=self, jpeg_quality=jpeg_quality)
 
