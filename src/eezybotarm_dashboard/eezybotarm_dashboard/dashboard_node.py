@@ -494,14 +494,21 @@ def build_dashboard_ui(node: EezybotDashboardNode):
             # Gripper Control Card
             with ui.card().classes('w-full shadow-lg rounded-xl p-4'):
                 ui.label('Gripper Control').classes('text-lg font-semibold mb-2')
+
+                def set_gripper(val: float):
+                    if math.isclose(grip_slider.value, val, abs_tol=1e-3):
+                        node.send_gripper_command(val)
+                    else:
+                        grip_slider.set_value(val)
+
                 with ui.row().classes('w-full gap-2 justify-center mb-3'):
                     ui.button(
                         'Open Gripper',
-                        on_click=lambda: (node.send_gripper_command(0.65), grip_slider.set_value(0.65)),
+                        on_click=lambda: set_gripper(0.65),
                     ).props('color=positive icon=pan_tool')
                     ui.button(
                         'Close Gripper',
-                        on_click=lambda: (node.send_gripper_command(0.0), grip_slider.set_value(0.0)),
+                        on_click=lambda: set_gripper(0.0),
                     ).props('color=negative icon=back_hand')
 
                 ui.label('Manual Position (rad):').classes('text-xs text-gray-500')
