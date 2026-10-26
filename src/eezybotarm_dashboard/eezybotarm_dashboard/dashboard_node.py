@@ -14,6 +14,7 @@ from builtin_interfaces.msg import Duration
 import cv2
 from cv_bridge import CvBridge
 from eezybotarm_interfaces.action import PickObject
+from eezybotarm_vision.coordinate_mapper import CoordinateMapper
 from fastapi.responses import Response, StreamingResponse
 from geometry_msgs.msg import PoseStamped
 from nicegui import app, ui, events
@@ -48,6 +49,8 @@ class EezybotDashboardNode(Node):
         self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
         self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
         self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
+        self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
         self.host = self.get_parameter('host').value
         self.port = self.get_parameter('port').value
@@ -55,12 +58,25 @@ class EezybotDashboardNode(Node):
         debug_topic = self.get_parameter('camera_debug_topic').value
         self.dataset_dir = Path(self.get_parameter('dataset_dir').value).expanduser().resolve()
 
-        self.table_width_m = self.get_parameter('table_width_m').value
-        self.table_depth_m = self.get_parameter('table_depth_m').value
-        self.robot_x_offset_m = self.get_parameter('robot_x_offset_m').value
-        self.robot_y_offset_m = self.get_parameter('robot_y_offset_m').value
-        self.table_z_m = self.get_parameter('table_z_m').value
-        self.cube_height_m = self.get_parameter('cube_height_m').value
+        table_width_m = self.get_parameter('table_width_m').value
+        table_depth_m = self.get_parameter('table_depth_m').value
+        robot_x_offset_m = self.get_parameter('robot_x_offset_m').value
+        robot_y_offset_m = self.get_parameter('robot_y_offset_m').value
+        table_z_m = self.get_parameter('table_z_m').value
+        cube_height_m = self.get_parameter('cube_height_m').value
+        sticker_width_m = self.get_parameter('sticker_width_m').value
+        sticker_height_m = self.get_parameter('sticker_height_m').value
+
+        self.mapper = CoordinateMapper(
+            table_width_m=table_width_m,
+            table_depth_m=table_depth_m,
+            robot_x_offset_m=robot_x_offset_m,
+            robot_y_offset_m=robot_y_offset_m,
+            table_z_m=table_z_m,
+            cube_height_m=cube_height_m,
+            sticker_width_m=sticker_width_m,
+            sticker_height_m=sticker_height_m,
+        )
 
         self.cb_group = ReentrantCallbackGroup()
         self.cv_bridge = CvBridge()
@@ -266,26 +282,13 @@ class EezybotDashboardNode(Node):
             f'Sent arm joints command: waist={waist:.2f}, shoulder={shoulder:.2f}, elbow={elbow:.2f}'
         )
 
-    def calculate_zone_xyz(self, zone_name: str) -> tuple[float, float, float]:
-        """Calculates metric coordinates for zone center (in base_link frame)."""
-        zone_multipliers = {'left': 0.5, 'middle': 1.5, 'right': 2.5}
-        multiplier = zone_multipliers.get(zone_name, 1.5)
-
-        x_table_m = (self.table_width_m / 3.0) * multiplier
-        y_table_m = self.table_depth_m / 2.0
-
-        x_robot = self.robot_x_offset_m + y_table_m
-        y_robot = self.robot_y_offset_m + (x_table_m - (self.table_width_m / 2.0))
-        z_robot = self.table_z_m + (self.cube_height_m / 2.0)
-        return x_robot, y_robot, z_robot
-
     def trigger_pick_and_place(self, pick_zone: str = 'middle', place_zone: str = 'right'):
         if not self.action_client.wait_for_server(timeout_sec=1.0):
             self.action_status = 'SERVER NOT AVAILABLE'
             return False
 
-        px, py, pz = self.calculate_zone_xyz(pick_zone)
-        rx, ry, rz = self.calculate_zone_xyz(place_zone)
+        px, py, pz = self.mapper.get_zone_center_robot_xyz(pick_zone)
+        rx, ry, rz = self.mapper.get_zone_center_robot_xyz(place_zone)
 
         goal_msg = PickObject.Goal()
         goal_msg.object_class = 'cube'

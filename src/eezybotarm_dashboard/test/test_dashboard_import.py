@@ -50,9 +50,16 @@ def test_dashboard_page_build():
         Parameter('robot_y_offset_m', Parameter.Type.DOUBLE, 0.0),
         Parameter('table_z_m', Parameter.Type.DOUBLE, 0.095),
         Parameter('cube_height_m', Parameter.Type.DOUBLE, 0.025),
+        Parameter('sticker_width_m', Parameter.Type.DOUBLE, 0.030),
+        Parameter('sticker_height_m', Parameter.Type.DOUBLE, 0.015),
         Parameter('dataset_dir', Parameter.Type.STRING, '/tmp/test_dataset'),
     ]
     node = EezybotDashboardNode(parameter_overrides=params)
+
+    assert hasattr(node, 'mapper')
+    xyz = node.mapper.get_zone_center_robot_xyz('middle')
+    assert len(xyz) == 3
+    assert xyz[0] > 0.0
 
     @ui.page('/test')
     def test_page():
