@@ -11,6 +11,7 @@ ZoneName = Literal['left', 'middle', 'right']
 
 # Ideal inner-to-outer area ratio for 12mm outer / 6mm inner diameter rings: (6/12)^2 = 0.25
 IDEAL_RING_HOLE_RATIO = 0.25
+_CLAHE = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
 
 @dataclass
@@ -172,6 +173,8 @@ def _select_best_ring_quad(
 ) -> np.ndarray | None:
     if len(candidates) < 4:
         return None
+    if len(candidates) > 12:
+        candidates = sorted(candidates, key=lambda c: c.ratio_err)[:12]
 
     best_corners: np.ndarray | None = None
     best_score = float('inf')
@@ -304,8 +307,7 @@ def detect_zones(
         return None
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    blurred = cv2.GaussianBlur(clahe.apply(gray), (5, 5), 0)
+    blurred = cv2.GaussianBlur(_CLAHE.apply(gray), (5, 5), 0)
 
     img_area = float(img.shape[0] * img.shape[1])
     min_ring_area = max(45.0, img_area * 0.00008)

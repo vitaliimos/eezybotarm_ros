@@ -3,6 +3,8 @@
 import cv2
 from eezybotarm_vision.coordinate_mapper import CoordinateMapper
 from eezybotarm_vision.zone_detector import (
+    _RingCandidate,
+    _select_best_ring_quad,
     detect_zones,
     get_real_coordinates,
     identify_zone,
@@ -136,3 +138,25 @@ def test_smooth_calibration():
 
     expected_corners = 0.5 * calib1.field_corners_px + 0.5 * calib2.field_corners_px
     assert np.allclose(smoothed.field_corners_px, expected_corners, atol=1e-2)
+
+
+def test_select_best_ring_quad_bounds_candidates():
+    valid = [
+        _RingCandidate(cx=100.0, cy=100.0, area=400.0, ratio_err=0.01),
+        _RingCandidate(cx=700.0, cy=100.0, area=400.0, ratio_err=0.01),
+        _RingCandidate(cx=700.0, cy=500.0, area=400.0, ratio_err=0.01),
+        _RingCandidate(cx=100.0, cy=500.0, area=400.0, ratio_err=0.01),
+    ]
+    noise = [
+        _RingCandidate(
+            cx=float(150 + i * 10),
+            cy=float(150 + (i % 7) * 30),
+            area=350.0,
+            ratio_err=0.20 + i * 0.01,
+        )
+        for i in range(40)
+    ]
+    quad = _select_best_ring_quad(noise + valid, min_field_area=10000.0)
+    assert quad is not None
+    assert np.allclose(quad[0], [100.0, 100.0])
+    assert np.allclose(quad[2], [700.0, 500.0])
