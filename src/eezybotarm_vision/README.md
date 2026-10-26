@@ -38,27 +38,15 @@ TensorRT engines are specific to the exact GPU architecture and runtime version.
 Use the exported ONNX model (`models/model.onnx`) to compile an `.engine` plan for your GPU.
 
 ### On PC (Linux Workstation / Dev Container)
-Compile with the Python helper script:
+Compile with the Python helper script (uses the container's `tensorrt` library with FP16 enabled):
 ```bash
-python3 scripts/build_trt_engine.py \
-    --onnx src/eezybotarm_vision/models/model.onnx \
-    --output src/eezybotarm_vision/models/model.engine
-```
-
-Or using `trtexec`:
-```bash
-trtexec --onnx=src/eezybotarm_vision/models/model.onnx \
-        --saveEngine=src/eezybotarm_vision/models/model.engine \
-        --minShapes=images:1x3x640x640 \
-        --optShapes=images:1x3x640x640 \
-        --maxShapes=images:1x3x640x640 \
-        --fp16
+./docker-run.sh python3 scripts/build_trt_engine.py
 ```
 
 ### On Jetson (Target Embedded Device)
-The Yocto image automatically handles this on first boot:
-* `recipes-model/cube-detection-model` places `model.engine` into `/usr/share/models/model.engine`.
-* `sorting_node` loads `/usr/share/models/model.engine` on startup.
+The Yocto image automatically handles this:
+* `recipes-model/cube-detection-model` installs the pre-compiled `model.engine` if present locally in `files/model.engine`, or falls back to installing `model.onnx` into `/usr/share/models/`.
+* On first boot, `eezybotarm-ensure-engine.sh` compiles `/usr/share/models/model.onnx` into `/usr/share/models/model.engine` if `model.engine` is not already present.
 
 ---
 
@@ -66,7 +54,11 @@ The Yocto image automatically handles this on first boot:
 
 ### Benchmark & Inference Test
 ```bash
+# Test ONNX Runtime inference
 ./docker-run.sh python3 scripts/test_yolo_inference.py
+
+# Test TensorRT (.engine) inference
+./docker-run.sh python3 scripts/test_yolo_inference.py --trt
 ```
 
 ### Launch Vision Node (Mock Camera)

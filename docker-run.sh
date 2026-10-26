@@ -44,6 +44,11 @@ if [ -d "/dev" ]; then
     DOCKER_ARGS+=(--privileged -v "/dev:/dev")
 fi
 
+# NVIDIA GPU access if available on host
+if command -v nvidia-smi &>/dev/null; then
+    DOCKER_ARGS+=(--gpus all)
+fi
+
 # Shortcut commands
 CMD_ARGS=()
 case "${1:-}" in

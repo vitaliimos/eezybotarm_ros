@@ -22,10 +22,15 @@ from eezybotarm_vision.yolo_detector import YoloCubeDetector  # noqa: E402
 def main():
     parser = argparse.ArgumentParser(description='Test YOLO cube detector with ONNX or TensorRT.')
     parser.add_argument(
+        '--trt',
+        action='store_true',
+        help='Use TensorRT engine (src/eezybotarm_vision/models/model.engine) instead of ONNX',
+    )
+    parser.add_argument(
         '--weights',
         '-w',
-        default=os.path.join(PKG_SRC, 'models', 'model.onnx'),
-        help='Path to .onnx or .engine file (default: src/eezybotarm_vision/models/model.onnx)',
+        default=None,
+        help='Path to .onnx or .engine file (default: model.onnx, or model.engine with --trt)',
     )
     parser.add_argument(
         '--image',
@@ -41,12 +46,6 @@ def main():
         help='Confidence threshold (default: 0.5)',
     )
     parser.add_argument(
-        '--iou',
-        type=float,
-        default=0.45,
-        help='IoU threshold for NMS (default: 0.45)',
-    )
-    parser.add_argument(
         '--output',
         '-o',
         default='/tmp/yolo_test_result.jpg',
@@ -55,20 +54,30 @@ def main():
 
     args = parser.parse_args()
 
-    if not os.path.exists(args.weights):
-        print(f"Error: Weights file '{args.weights}' not found.", file=sys.stderr)
+    weights_path = args.weights
+    if weights_path is None:
+        model_filename = 'model.engine' if args.trt else 'model.onnx'
+        weights_path = os.path.join(PKG_SRC, 'models', model_filename)
+
+    if not os.path.exists(weights_path):
+        print(f"Error: Weights file '{weights_path}' not found.", file=sys.stderr)
+        if weights_path.endswith('.engine'):
+            print(
+                'Compile the TensorRT engine first:\n'
+                '  ./docker-run.sh python3 scripts/build_trt_engine.py',
+                file=sys.stderr,
+            )
         sys.exit(1)
 
     if not os.path.exists(args.image):
         print(f"Error: Test image '{args.image}' not found.", file=sys.stderr)
         sys.exit(1)
 
-    print(f'Loading model: {args.weights}')
+    print(f'Loading model: {weights_path}')
     start_init = time.perf_counter()
     detector = YoloCubeDetector(
-        weights_path=args.weights,
+        weights_path=weights_path,
         conf_threshold=args.conf,
-        iou_threshold=args.iou,
     )
     init_time_ms = (time.perf_counter() - start_init) * 1000.0
     print(f'Model loaded in {init_time_ms:.1f} ms')

@@ -37,8 +37,9 @@ Thumbs.db
 *~
 .Trash-*/
 
-# TensorRT engine plans (machine-specific)
+# TensorRT engine plans & timing cache (machine-specific)
 *.engine
+*.timing.cache
 
 # External source repositories in src/
 # Only the custom eezybotarm_* packages are version-controlled in this repository

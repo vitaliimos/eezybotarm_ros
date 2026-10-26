@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -10,7 +10,6 @@ def generate_launch_description():
         [FindPackageShare('eezybotarm_moveit_config'), 'launch', 'bringup.launch.py']
     )
 
-    profile = LaunchConfiguration('profile')
     i2c_bus = LaunchConfiguration('i2c_bus')
     i2c_address = LaunchConfiguration('i2c_address')
     pwm_frequency = LaunchConfiguration('pwm_frequency')
@@ -18,19 +17,7 @@ def generate_launch_description():
     start_camera = LaunchConfiguration('start_camera')
     weights_path = LaunchConfiguration('weights_path')
 
-    default_weights_path = PythonExpression([
-        "'/usr/share/models/model.onnx' if '",
-        profile,
-        "' == 'dev' else '/usr/share/models/model.engine'",
-    ])
-
     return LaunchDescription([
-        DeclareLaunchArgument(
-            'profile',
-            default_value='prod',
-            choices=['prod', 'dev'],
-            description='Target profile on Jetson (prod uses TensorRT .engine, dev uses .onnx)',
-        ),
         DeclareLaunchArgument(
             'i2c_bus',
             default_value='/dev/i2c-7',
@@ -58,8 +45,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'weights_path',
-            default_value=default_weights_path,
-            description='Path to YOLO weights file (.engine for prod, .onnx for dev)',
+            default_value='/usr/share/models/model.engine',
+            description='Path to YOLO TensorRT engine file',
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(bringup),
