@@ -45,6 +45,7 @@ Thumbs.db
 src/*/
 !src/eezybotarm_control/
 !src/eezybotarm_dashboard/
+!src/eezybotarm_debug/
 !src/eezybotarm_description/
 !src/eezybotarm_hardware/
 !src/eezybotarm_interfaces/
