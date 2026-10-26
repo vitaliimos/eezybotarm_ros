@@ -47,12 +47,12 @@ class _RingCandidate:
 def order_corners(pts: np.ndarray) -> np.ndarray:
     """Order 4 quadrilateral points into [top-left, top-right, bottom-right, bottom-left]."""
     pts = pts.reshape(4, 2).astype(np.float32)
-    s = pts.sum(axis=1)
-    d = pts[:, 0] - pts[:, 1]
-    tl = pts[np.argmin(s)]
-    tr = pts[np.argmax(d)]
-    br = pts[np.argmax(s)]
-    bl = pts[np.argmin(d)]
+    y_sorted = pts[np.argsort(pts[:, 1])]
+    top = y_sorted[:2]
+    bottom = y_sorted[2:]
+
+    tl, tr = top[np.argsort(top[:, 0])]
+    bl, br = bottom[np.argsort(bottom[:, 0])]
     return np.array([tl, tr, br, bl], dtype=np.float32)
 
 

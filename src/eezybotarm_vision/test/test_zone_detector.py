@@ -23,6 +23,17 @@ def test_order_corners():
     assert np.allclose(ordered[2], [100, 100])  # BR
     assert np.allclose(ordered[3], [0, 100])    # BL
 
+    # Verify tilted / skewed quadrilateral ordering without duplicate corners
+    tilted = np.array([[10, 80], [90, 85], [15, 12], [85, 8]], dtype=np.float32)
+    ordered_tilted = order_corners(tilted)
+    assert np.allclose(ordered_tilted[0], [15, 12])  # TL
+    assert np.allclose(ordered_tilted[1], [85, 8])   # TR
+    assert np.allclose(ordered_tilted[2], [90, 85])  # BR
+    assert np.allclose(ordered_tilted[3], [10, 80])  # BL
+
+    # Ensure all 4 returned points are strictly unique
+    assert len({tuple(pt) for pt in ordered_tilted}) == 4
+
 
 def test_identify_zone():
     w, h = 300.0, 200.0
