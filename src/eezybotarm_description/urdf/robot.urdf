@@ -220,7 +220,7 @@
 
   <!-- End-Effector frame for MoveIt -->
   <joint name="ee_joint" type="fixed">
-    <origin xyz="0.07 0 0" rpy="0 0 0" />
+    <origin xyz="0.075 0 0" rpy="0 0 0" />
     <parent link="claw_base" />
     <child link="ee_link" />
   </joint>
