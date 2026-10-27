@@ -109,9 +109,9 @@ Use this mode for local development and testing without physical hardware connec
 
 Available launch arguments:
 * `use_mock_hardware` (default: `true`): Use mock hardware interfaces.
-* `use_mock_camera` (default: `true`): Use `image_publisher` mock camera instead of a physical USB camera.
+* `camera` (default: `mock`): Camera streaming mode (`mock`, `real`, `none`).
 * `use_rviz` (default: `true`): Launch RViz for visualization and planning.
-* `start_dashboard` (default: `true`): Launch the NiceGUI web dashboard on port `8080`.
+* `use_dashboard` (default: `true`): Launch the NiceGUI web dashboard on port `8080`.
 * `weights_path` (default: `<eezybotarm_vision>/models/model.onnx`): Path to YOLO weights file.
 
 ### 2. Target Hardware on NVIDIA Jetson (`jetson.launch.py`)
@@ -199,7 +199,7 @@ Run the complete ROS 2 vision launch pipeline with mock camera:
 ```bash
 ./docker-run.sh ros2 launch eezybotarm_vision vision.launch.py \
     weights_path:=/workspaces/src/eezybotarm_vision/models/model.engine \
-    use_mock_camera:=true gui:=false
+    camera:=mock gui:=false
 ```
 
 ### 3. Deployment on Target Hardware (NVIDIA Jetson)

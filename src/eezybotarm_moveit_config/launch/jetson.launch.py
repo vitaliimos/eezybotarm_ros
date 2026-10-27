@@ -14,7 +14,7 @@ def generate_launch_description():
     i2c_address = LaunchConfiguration('i2c_address')
     pwm_frequency = LaunchConfiguration('pwm_frequency')
     use_vision = LaunchConfiguration('use_vision')
-    start_camera = LaunchConfiguration('start_camera')
+    camera = LaunchConfiguration('camera')
     weights_path = LaunchConfiguration('weights_path')
 
     return LaunchDescription([
@@ -39,9 +39,10 @@ def generate_launch_description():
             description='Launch vision and sorting coordinator nodes',
         ),
         DeclareLaunchArgument(
-            'start_camera',
-            default_value='true',
-            description='Whether to start physical USB camera streaming node',
+            'camera',
+            default_value='real',
+            choices=['real', 'mock', 'none'],
+            description='Camera streaming mode: real (v4l2_camera), mock (image_publisher), none',
         ),
         DeclareLaunchArgument(
             'weights_path',
@@ -52,12 +53,11 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(bringup),
             launch_arguments={
                 'use_mock_hardware': 'false',
-                'use_mock_camera': 'false',
+                'camera': camera,
                 'i2c_bus': i2c_bus,
                 'i2c_address': i2c_address,
                 'pwm_frequency': pwm_frequency,
                 'use_vision': use_vision,
-                'start_camera': start_camera,
                 'weights_path': weights_path,
             }.items(),
         ),

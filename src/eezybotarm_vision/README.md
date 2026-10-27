@@ -65,7 +65,7 @@ The Yocto image automatically handles this:
 ```bash
 ./docker-run.sh ros2 launch eezybotarm_vision vision.launch.py \
     weights_path:=/workspaces/src/eezybotarm_vision/models/model.onnx \
-    use_mock_camera:=true gui:=true
+    camera:=mock gui:=true
 ```
 
 ### Launch Complete Local Stack (Mock Hardware + Mock Camera + RViz + Dashboard)

@@ -1,7 +1,11 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch.substitutions import (
+    EqualsSubstitution,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -17,26 +21,15 @@ def generate_launch_description():
 
     config_file = LaunchConfiguration('config_file')
     environment_config = LaunchConfiguration('environment_config')
-    start_camera = LaunchConfiguration('start_camera')
-    use_mock_camera = LaunchConfiguration('use_mock_camera')
+    camera = LaunchConfiguration('camera')
     video_device = LaunchConfiguration('video_device')
     mock_image_path = LaunchConfiguration('mock_image_path')
     weights_path = LaunchConfiguration('weights_path')
     gui = LaunchConfiguration('gui')
 
-    # Condition: start_camera is true AND use_mock_camera is false
-    run_real_camera = IfCondition(
-        PythonExpression([
-            "'", start_camera, "' == 'true' and '", use_mock_camera, "' == 'false'"
-        ])
-    )
-
-    # Condition: start_camera is true AND use_mock_camera is true
-    run_mock_camera = IfCondition(
-        PythonExpression([
-            "'", start_camera, "' == 'true' and '", use_mock_camera, "' == 'true'"
-        ])
-    )
+    # Camera node execution conditions
+    run_real_camera = IfCondition(EqualsSubstitution(camera, 'real'))
+    run_mock_camera = IfCondition(EqualsSubstitution(camera, 'mock'))
 
     # 1. Real USB Camera node (v4l2_camera)
     real_camera_node = Node(
@@ -110,14 +103,10 @@ def generate_launch_description():
             description='Path to workspace environment parameters YAML file',
         ),
         DeclareLaunchArgument(
-            'start_camera',
-            default_value='true',
-            description='Whether to start any camera streaming node',
-        ),
-        DeclareLaunchArgument(
-            'use_mock_camera',
-            default_value='false',
-            description='Whether to use image_publisher mock instead of physical camera',
+            'camera',
+            default_value='real',
+            choices=['real', 'mock', 'none'],
+            description='Camera streaming mode: real (v4l2_camera), mock (image_publisher), none',
         ),
         DeclareLaunchArgument(
             'video_device',

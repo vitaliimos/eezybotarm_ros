@@ -15,8 +15,7 @@ def generate_launch_description():
     i2c_address = LaunchConfiguration('i2c_address')
     pwm_frequency = LaunchConfiguration('pwm_frequency')
     use_vision = LaunchConfiguration('use_vision')
-    use_mock_camera = LaunchConfiguration('use_mock_camera')
-    start_camera = LaunchConfiguration('start_camera')
+    camera = LaunchConfiguration('camera')
     video_device = LaunchConfiguration('video_device')
     weights_path = LaunchConfiguration('weights_path')
     include_environment = LaunchConfiguration('include_environment')
@@ -114,8 +113,7 @@ def generate_launch_description():
             ])
         ),
         launch_arguments={
-            'use_mock_camera': use_mock_camera,
-            'start_camera': start_camera,
+            'camera': camera,
             'video_device': video_device,
             'weights_path': weights_path,
         }.items(),
@@ -149,14 +147,10 @@ def generate_launch_description():
             description='Launch vision and sorting coordinator nodes',
         ),
         DeclareLaunchArgument(
-            'use_mock_camera',
-            default_value='false',
-            description='Use image_publisher mock camera instead of physical USB camera',
-        ),
-        DeclareLaunchArgument(
-            'start_camera',
-            default_value='true',
-            description='Whether to start camera streaming node in vision',
+            'camera',
+            default_value='real',
+            choices=['real', 'mock', 'none'],
+            description='Camera streaming mode: real (v4l2_camera), mock (image_publisher), none',
         ),
         DeclareLaunchArgument(
             'video_device',
