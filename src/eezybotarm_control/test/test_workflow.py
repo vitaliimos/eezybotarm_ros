@@ -1,11 +1,13 @@
 """Unit tests for sequential workflow runner."""
 
+import threading
 from unittest.mock import MagicMock
 
 from eezybotarm_control.pick_and_place_server import _offset_z, PickAndPlaceActionServer
 from eezybotarm_control.workflow import run_workflow
 from geometry_msgs.msg import PoseStamped
 import pytest
+from rclpy.action import CancelResponse, GoalResponse
 
 
 class FakeAction:
@@ -112,6 +114,134 @@ def test_cancel_requested():
     goal_handle.succeed.assert_not_called()
     assert result.success is False
     assert result.error_code == 'Goal canceled by client'
+
+
+def test_cancel_during_step_with_failure():
+    """If a step fails because cancel was requested, mark canceled not aborted."""
+    goal_handle = make_goal_handle()
+
+    def cancel_and_fail_during_step():
+        goal_handle.is_cancel_requested = True
+        return False
+
+    action = MagicMock(side_effect=cancel_and_fail_during_step)
+    result = run([('STEP_1', action)], goal_handle)
+
+    action.assert_called_once()
+    goal_handle.canceled.assert_called_once()
+    goal_handle.abort.assert_not_called()
+    assert result.success is False
+    assert result.error_code == 'Goal canceled by client'
+
+
+def test_goal_callback_accepts_when_idle_and_rejects_when_pending():
+    """goal_callback accepts first goal, sets pending flag, and rejects when pending."""
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server._goal_lock = threading.Lock()
+    server._current_goal = None
+    server._is_goal_pending = False
+    server.get_logger = MagicMock()
+
+    request = MagicMock()
+    request.object_class = 'cube'
+    request.target_pose.pose.position.x = 0.1
+    request.target_pose.pose.position.y = 0.2
+
+    resp1 = server.goal_callback(request)
+    assert resp1 == GoalResponse.ACCEPT
+    assert server._is_goal_pending is True
+
+    resp2 = server.goal_callback(request)
+    assert resp2 == GoalResponse.REJECT
+
+
+def test_goal_callback_rejects_when_active_goal_exists():
+    """goal_callback rejects if a goal is already executing/active."""
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server._goal_lock = threading.Lock()
+    server._current_goal = MagicMock(is_active=True)
+    server._is_goal_pending = False
+    server.get_logger = MagicMock()
+
+    request = MagicMock()
+    request.object_class = 'cube'
+    request.target_pose.pose.position.x = 0.1
+    request.target_pose.pose.position.y = 0.2
+
+    resp = server.goal_callback(request)
+    assert resp == GoalResponse.REJECT
+
+
+def test_handle_accepted_callback_sets_active_goal():
+    """handle_accepted_callback stores current goal and clears pending flag."""
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server._goal_lock = threading.Lock()
+    server._current_goal = None
+    server._is_goal_pending = True
+
+    goal_handle = MagicMock()
+    server.handle_accepted_callback(goal_handle)
+
+    assert server._current_goal == goal_handle
+    assert server._is_goal_pending is False
+    goal_handle.execute.assert_called_once()
+
+
+def test_cancel_callback_stops_trajectory_for_active_goal():
+    """cancel_callback invokes stop_execution on TrajectoryExecutionManager for active goal."""
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server._goal_lock = threading.Lock()
+    goal_handle = MagicMock(is_active=True)
+    server._current_goal = goal_handle
+    server.get_logger = MagicMock()
+    tem = MagicMock()
+    server.moveit = MagicMock()
+    server.moveit.get_trajectory_execution_manager.return_value = tem
+
+    resp = server.cancel_callback(goal_handle)
+    assert resp == CancelResponse.ACCEPT
+    tem.stop_execution.assert_called_once()
+
+
+def test_cancel_callback_rejects_for_unknown_or_inactive_goal():
+    """cancel_callback rejects cancellation when handle does not match current active goal."""
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server._goal_lock = threading.Lock()
+    active_handle = MagicMock(is_active=True)
+    server._current_goal = active_handle
+    server.get_logger = MagicMock()
+    tem = MagicMock()
+    server.moveit = MagicMock()
+    server.moveit.get_trajectory_execution_manager.return_value = tem
+
+    unknown_handle = MagicMock(is_active=True)
+    resp = server.cancel_callback(unknown_handle)
+    assert resp == CancelResponse.REJECT
+    tem.stop_execution.assert_not_called()
+
+    # Inactive current handle
+    active_handle.is_active = False
+    resp2 = server.cancel_callback(active_handle)
+    assert resp2 == CancelResponse.REJECT
+    tem.stop_execution.assert_not_called()
+
+
+def test_execute_callback_resets_goal_state():
+    """execute_callback always resets _current_goal and _is_goal_pending in finally block."""
+    server = PickAndPlaceActionServer.__new__(PickAndPlaceActionServer)
+    server._goal_lock = threading.Lock()
+    goal_handle = make_goal_handle()
+    server._current_goal = goal_handle
+    server._is_goal_pending = True
+    server.approach_distance = 0.03
+    server.get_logger = MagicMock()
+    server._build_steps = MagicMock(side_effect=RuntimeError('step build failed'))
+
+    with pytest.raises(RuntimeError):
+        server.execute_callback(goal_handle)
+
+    assert server._current_goal is None
+    assert server._is_goal_pending is False
 
 
 def _make_pose(x: float, y: float, z: float, frame_id: str = 'base_link') -> PoseStamped:

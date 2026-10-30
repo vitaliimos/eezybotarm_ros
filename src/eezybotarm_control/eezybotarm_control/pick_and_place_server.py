@@ -1,4 +1,5 @@
 import copy
+import threading
 
 from eezybotarm_control.workflow import run_workflow
 from eezybotarm_interfaces.action import PickObject
@@ -59,6 +60,10 @@ class PickAndPlaceActionServer(Node):
         self.declare_parameter('approach_distance', DEFAULT_APPROACH_DISTANCE_M)
         self.approach_distance = self.get_parameter('approach_distance').value
 
+        self._goal_lock = threading.Lock()
+        self._current_goal = None
+        self._is_goal_pending = False
+
         self.moveit = MoveItPy(node_name='pick_and_place_moveit')
         self.arm = self.moveit.get_planning_component('arm')
         self.gripper = self.moveit.get_planning_component('hand')
@@ -70,6 +75,7 @@ class PickAndPlaceActionServer(Node):
             'pick_and_place',
             execute_callback=self.execute_callback,
             goal_callback=self.goal_callback,
+            handle_accepted_callback=self.handle_accepted_callback,
             cancel_callback=self.cancel_callback,
             callback_group=ReentrantCallbackGroup(),
         )
@@ -81,18 +87,51 @@ class PickAndPlaceActionServer(Node):
             f"Goal received for '{goal_request.object_class}' "
             f'at X={position.x:.2f}, Y={position.y:.2f}'
         )
+        with self._goal_lock:
+            if self._is_goal_pending or (
+                self._current_goal is not None and self._current_goal.is_active
+            ):
+                self.get_logger().warn(
+                    f"Rejecting goal for '{goal_request.object_class}': "
+                    'robot is already executing a task'
+                )
+                return GoalResponse.REJECT
+            self._is_goal_pending = True
         return GoalResponse.ACCEPT
 
+    def handle_accepted_callback(self, goal_handle):
+        with self._goal_lock:
+            self._current_goal = goal_handle
+            self._is_goal_pending = False
+        goal_handle.execute()
+
     def cancel_callback(self, goal_handle):
-        self.get_logger().warn('Cancellation requested!')
+        with self._goal_lock:
+            if self._current_goal != goal_handle or not goal_handle.is_active:
+                self.get_logger().warn('Rejecting cancellation: goal is not active')
+                return CancelResponse.REJECT
+
+        self.get_logger().warn('Cancellation requested! Stopping trajectory execution...')
+        try:
+            tem = self.moveit.get_trajectory_execution_manager()
+            if tem:
+                tem.stop_execution()
+        except Exception as exc:
+            self.get_logger().error(f'Failed to stop trajectory execution: {exc}')
         return CancelResponse.ACCEPT
 
-    async def execute_callback(self, goal_handle):
-        pick_pose = goal_handle.request.target_pose
-        place_pose = goal_handle.request.place_pose
+    def execute_callback(self, goal_handle):
+        try:
+            pick_pose = goal_handle.request.target_pose
+            place_pose = goal_handle.request.place_pose
 
-        steps = self._build_steps(pick_pose, place_pose, self.approach_distance)
-        return run_workflow(steps, goal_handle, PickObject, self.get_logger())
+            steps = self._build_steps(pick_pose, place_pose, self.approach_distance)
+            return run_workflow(steps, goal_handle, PickObject, self.get_logger())
+        finally:
+            with self._goal_lock:
+                if self._current_goal == goal_handle:
+                    self._current_goal = None
+                self._is_goal_pending = False
 
     def _build_steps(
         self,

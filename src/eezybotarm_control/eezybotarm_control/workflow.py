@@ -40,6 +40,11 @@ def run_workflow(steps: list[Step], goal_handle, action_type, logger):
             logger.error(f'Step {phase} raised: {exc}')
             ok = False
 
+        if goal_handle.is_cancel_requested:
+            logger.warn(f'Canceled during step {phase}')
+            goal_handle.canceled()
+            return finish(False, 'Goal canceled by client')
+
         if not ok:
             logger.error(f'Step {phase} failed')
             goal_handle.abort()
