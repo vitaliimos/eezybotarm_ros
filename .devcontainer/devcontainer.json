@@ -1,5 +1,5 @@
 {
-    "name": "ROS 2 Jazzy Eezybotarm Dev",
+    "name": "ROS 2 Lyrical Eezybotarm Dev",
     "build": {
         "dockerfile": "Dockerfile",
         "context": ".."
@@ -17,10 +17,16 @@
     "containerEnv": {
         "DISPLAY": "${localEnv:DISPLAY}",
         "XDG_RUNTIME_DIR": "/tmp/runtime-ubuntu",
-        "QT_X11_NO_MITSHM": "1"
+        "QT_X11_NO_MITSHM": "1",
+        "QT_ENABLE_HIGHDPI_SCALING": "0",
+        "QT_SCREEN_SCALE_FACTORS": "1",
+        "OGRE_RTT_MODE": "Copy",
+        "__GL_SYNC_TO_VBLANK": "0",
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "NVIDIA_DRIVER_CAPABILITIES": "graphics,compute,utility,display"
     },
     "initializeCommand": "xhost +si:localuser:root; xhost +si:localuser:$USER",
-    "postCreateCommand": "(test -f /etc/ros/rosdep/sources.list.d/20-default.list || sudo rosdep init) && rosdep update && rosdep install --from-paths src --ignore-src -r -y || echo \"source /opt/ros/jazzy/setup.bash\" >> ~/.bashrc'",
+    "postCreateCommand": "true && (test -f /etc/ros/rosdep/sources.list.d/20-default.list || sudo rosdep init) && rosdep update && rosdep install --from-paths src --ignore-src -r -y || echo \"source /opt/ros/lyrical/setup.bash\" >> ~/.bashrc",
     "remoteUser": "ubuntu",
     "workspaceFolder": "/eezybot_ros",
     "workspaceMount": "source=${localWorkspaceFolder},target=/eezybot_ros,type=bind",
@@ -28,10 +34,10 @@
         "vscode": {
             "settings": {
                 "python.autoComplete.extraPaths": [
-                    "/opt/ros/jazzy/lib/python3.12/site-packages"
+                    "/opt/ros/lyrical/lib/python3.14/site-packages"
                 ],
                 "python.analysis.extraPaths": [
-                    "/opt/ros/jazzy/lib/python3.12/site-packages"
+                    "/opt/ros/lyrical/lib/python3.14/site-packages"
                 ],
                 "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
             },

@@ -91,7 +91,7 @@ class PickAndPlaceActionServer(Node):
             if self._is_goal_pending or (
                 self._current_goal is not None and self._current_goal.is_active
             ):
-                self.get_logger().warn(
+                self.get_logger().warning(
                     f"Rejecting goal for '{goal_request.object_class}': "
                     'robot is already executing a task'
                 )
@@ -108,10 +108,10 @@ class PickAndPlaceActionServer(Node):
     def cancel_callback(self, goal_handle):
         with self._goal_lock:
             if self._current_goal != goal_handle or not goal_handle.is_active:
-                self.get_logger().warn('Rejecting cancellation: goal is not active')
+                self.get_logger().warning('Rejecting cancellation: goal is not active')
                 return CancelResponse.REJECT
 
-        self.get_logger().warn('Cancellation requested! Stopping trajectory execution...')
+        self.get_logger().warning('Cancellation requested! Stopping trajectory execution...')
         try:
             tem = self.moveit.get_trajectory_execution_manager()
             if tem:

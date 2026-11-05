@@ -140,7 +140,7 @@ class SortingCoordinatorNode(Node):
         try:
             return self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as exc:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 f'Failed to convert image frame: {exc}', throttle_duration_sec=2.0
             )
             return None
@@ -303,7 +303,7 @@ class SortingCoordinatorNode(Node):
         self, det: CubeDetection, pick_x_mm: float, pick_y_mm: float
     ) -> None:
         if not self.action_client.server_is_ready():
-            self.get_logger().warn('Pick-and-place action server not ready!')
+            self.get_logger().warning('Pick-and-place action server not ready!')
             self._reset_to_scanning()
             return
 
@@ -346,7 +346,7 @@ class SortingCoordinatorNode(Node):
             return
 
         if not goal_handle.accepted:
-            self.get_logger().warn('Goal was rejected by pick-and-place server!')
+            self.get_logger().warning('Goal was rejected by pick-and-place server!')
             self._reset_to_scanning()
             return
 

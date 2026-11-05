@@ -1,4 +1,4 @@
-FROM ros:jazzy-ros-base-noble
+FROM ros:lyrical-ros-base-resolute
 
 ARG USERNAME=ubuntu
 
@@ -23,11 +23,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/pip \
-    && printf "[global]\nbreak-system-packages = true\n\n[install]\nignore-installed = true\n" > /etc/pip.conf \
-    && printf "numpy<2\nsetuptools<70\n" > /etc/pip/constraints.txt
+    && printf "[global]\nbreak-system-packages = true\nno-cache-dir = true\n\n[install]\nignore-installed = true\n" > /etc/pip.conf
 ENV PIP_BREAK_SYSTEM_PACKAGES=1 \
     PIP_IGNORE_INSTALLED=1 \
-    PIP_CONSTRAINT=/etc/pip/constraints.txt
+    PIP_NO_CACHE_DIR=1
 
 # Configure custom rosdep rules and install dependencies for workspace packages
 COPY rosdep.yaml /etc/ros/rosdep/custom_rules/eeazybot.yaml
@@ -35,6 +34,7 @@ RUN echo "yaml file:///etc/ros/rosdep/custom_rules/eeazybot.yaml" > /etc/ros/ros
 
 COPY src/eezybotarm_control/package.xml /tmp/manifests/eezybotarm_control/package.xml
 COPY src/eezybotarm_dashboard/package.xml /tmp/manifests/eezybotarm_dashboard/package.xml
+COPY src/eezybotarm_debug/package.xml /tmp/manifests/eezybotarm_debug/package.xml
 COPY src/eezybotarm_description/package.xml /tmp/manifests/eezybotarm_description/package.xml
 COPY src/eezybotarm_hardware/package.xml /tmp/manifests/eezybotarm_hardware/package.xml
 COPY src/eezybotarm_interfaces/package.xml /tmp/manifests/eezybotarm_interfaces/package.xml
@@ -46,8 +46,6 @@ RUN rosdep init || true \
     && rosdep install --from-paths /tmp/manifests --ignore-src -y \
     && rm -rf /tmp/manifests \
     && rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed "setuptools<70" "numpy<2"
 
 RUN mkdir -p /eezybot_ros \
     && chown -R ${USERNAME}:${USERNAME} /eezybot_ros

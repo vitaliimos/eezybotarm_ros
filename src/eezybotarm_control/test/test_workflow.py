@@ -11,12 +11,15 @@ from rclpy.action import CancelResponse, GoalResponse
 
 
 class FakeAction:
+
     class Feedback:
+
         def __init__(self):
             self.current_phase = ''
             self.progress_percentage = 0.0
 
     class Result:
+
         def __init__(self):
             self.success = False
             self.execution_time = 0.0

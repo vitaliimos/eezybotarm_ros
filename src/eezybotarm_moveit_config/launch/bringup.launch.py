@@ -52,7 +52,16 @@ def generate_launch_description():
     static_world_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'world', 'base_link'],
+        arguments=[
+            '--x', '0',
+            '--y', '0',
+            '--z', '0',
+            '--roll', '0',
+            '--pitch', '0',
+            '--yaw', '0',
+            '--frame-id', 'world',
+            '--child-frame-id', 'base_link',
+        ],
         output='screen',
     )
     ros2_control = Node(
@@ -64,19 +73,31 @@ def generate_launch_description():
     joint_state_broadcaster = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['joint_state_broadcaster', '--controller-manager', '/controller_manager'],
+        arguments=[
+            'joint_state_broadcaster',
+            '--controller-manager', '/controller_manager',
+            '--param-file', controller_config,
+        ],
         output='screen',
     )
     arm_controller = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['arm_controller', '--controller-manager', '/controller_manager'],
+        arguments=[
+            'arm_controller',
+            '--controller-manager', '/controller_manager',
+            '--param-file', controller_config,
+        ],
         output='screen',
     )
     hand_controller = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['hand_controller', '--controller-manager', '/controller_manager'],
+        arguments=[
+            'hand_controller',
+            '--controller-manager', '/controller_manager',
+            '--param-file', controller_config,
+        ],
         output='screen',
     )
     # MoveItCpp (used by moveit_py) reads `planning_pipelines.pipeline_names`, while the
@@ -100,6 +121,12 @@ def generate_launch_description():
         OnProcessExit(
             target_action=arm_controller,
             on_exit=[hand_controller],
+        )
+    )
+    start_pick_and_place_server = RegisterEventHandler(
+        OnProcessExit(
+            target_action=hand_controller,
+            on_exit=[pick_and_place_server],
         )
     )
 
@@ -173,6 +200,6 @@ def generate_launch_description():
         joint_state_broadcaster,
         start_arm_controller,
         start_hand_controller,
-        pick_and_place_server,
+        start_pick_and_place_server,
         vision_launch,
     ])

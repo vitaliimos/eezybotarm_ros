@@ -26,7 +26,7 @@ def run_workflow(steps: list[Step], goal_handle, action_type, logger):
 
     for index, (phase, action) in enumerate(steps):
         if goal_handle.is_cancel_requested:
-            logger.warn(f'Canceled before step {phase}')
+            logger.warning(f'Canceled before step {phase}')
             goal_handle.canceled()
             return finish(False, 'Goal canceled by client')
 
@@ -41,7 +41,7 @@ def run_workflow(steps: list[Step], goal_handle, action_type, logger):
             ok = False
 
         if goal_handle.is_cancel_requested:
-            logger.warn(f'Canceled during step {phase}')
+            logger.warning(f'Canceled during step {phase}')
             goal_handle.canceled()
             return finish(False, 'Goal canceled by client')
 

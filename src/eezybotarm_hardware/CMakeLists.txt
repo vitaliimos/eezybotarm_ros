@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.22)
 project(eezybotarm_hardware)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -22,11 +22,11 @@ target_include_directories(eezybotarm_hardware PUBLIC
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-ament_target_dependencies(${PROJECT_NAME}
-  hardware_interface
-  rclcpp
-  pluginlib
-  rclcpp_lifecycle
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  hardware_interface::hardware_interface
+  rclcpp::rclcpp
+  pluginlib::pluginlib
+  rclcpp_lifecycle::rclcpp_lifecycle
 )
 
 pluginlib_export_plugin_description_file(hardware_interface eezybotarm_hardware.xml)

@@ -1,13 +1,13 @@
-# EezyBotArm ROS 2 Jazzy & MoveIt 2 Autonomous Robotic Cell
+# EezyBotArm ROS 2 Lyrical & MoveIt 2 Autonomous Robotic Cell
 
-[![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy_Jalisco-343434?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
+[![ROS 2 Lyrical](https://img.shields.io/badge/ROS_2-Lyrical_Luth-343434?logo=ros&logoColor=white)](https://docs.ros.org/en/lyrical/)
 [![MoveIt 2](https://img.shields.io/badge/MoveIt_2-Motion_Planning-2C3E50)](https://moveit.picknik.ai/)
 [![NVIDIA Jetson](https://img.shields.io/badge/NVIDIA_Jetson-Orin_Nano-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
 [![TensorRT](https://img.shields.io/badge/Accelerated-TensorRT-76B900?logo=nvidia)](https://developer.nvidia.com/tensorrt)
 [![Yocto Project](https://img.shields.io/badge/Embedded_Linux-Yocto_Project-004481?logo=linux)](https://github.com/vitaliimos/eezybotarm_yocto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An end-to-end, autonomous robotics workcell built on the open-source **EEZYbotARM Mk2** platform. Powered by **ROS 2 Jazzy**, **MoveIt 2**, **MoveItPy**, custom **C++ `ros2_control` hardware interface** for PCA9685 over Linux I2C, real-time **YOLO object detection accelerated with NVIDIA TensorRT**, and a **custom embedded Linux OS built with Yocto**.
+An end-to-end, autonomous robotics workcell built on the open-source **EEZYbotARM Mk2** platform. Powered by **ROS 2 Lyrical**, **MoveIt 2**, **MoveItPy**, custom **C++ `ros2_control` hardware interface** for PCA9685 over Linux I2C, real-time **YOLO object detection accelerated with NVIDIA TensorRT**, and a **custom embedded Linux OS built with Yocto**.
 
 ---
 
@@ -122,13 +122,13 @@ The repository provides a complete, pre-configured development environment using
 2. Install the **Dev Containers** extension in VS Code.
 3. Open this repository folder in VS Code.
 4. When prompted, click **"Reopen in Container"** (or press `Ctrl+Shift+P` / `Cmd+Shift+P` and select `Dev Containers: Reopen in Container`).
-5. All system libraries, ROS 2 Jazzy packages, MoveIt 2, and compilers will be installed automatically.
+5. All system libraries, ROS 2 Lyrical packages, MoveIt 2, and compilers will be installed automatically.
 
-### Option 2: Native Local Setup (Ubuntu 24.04 + ROS 2 Jazzy)
+### Option 2: Native Local Setup (Ubuntu 26.04 + ROS 2 Lyrical)
 
-If developing natively on Ubuntu 24.04 with ROS 2 Jazzy:
+If developing natively on Ubuntu 26.04 with ROS 2 Lyrical:
 
-1. **Install ROS 2 Jazzy Base & Development Tools**:
+1. **Install ROS 2 Lyrical Base & Development Tools**:
    ```bash
    sudo apt update
    sudo apt install -y python3-colcon-common-extensions python3-rosdep python3-vcstool

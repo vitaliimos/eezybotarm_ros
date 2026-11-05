@@ -1,10 +1,10 @@
 #!/bin/bash
 # Helper script to run ROS 2 commands and colcon builds inside the Docker development container.
-# Host: Ubuntu 26.04 (Noble/Jazzy runs inside container)
+# Host: Ubuntu 26.04 (Resolute/Lyrical runs inside container)
 
 set -euo pipefail
 
-IMAGE_NAME="eeazybot-dev:latest"
+IMAGE_NAME="eeazybot-dev:lyrical"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
 # Ensure image exists or build from .devcontainer/Dockerfile
@@ -69,4 +69,4 @@ case "${1:-}" in
 esac
 
 exec docker run "${DOCKER_ARGS[@]}" "$IMAGE_NAME" bash -c \
-    'source /opt/ros/jazzy/setup.bash && if [ -f /eezybot_ros/install/setup.bash ]; then source /eezybot_ros/install/setup.bash; fi && exec "$@"' _ "${CMD_ARGS[@]}"
+    'source /opt/ros/lyrical/setup.bash && if [ -f /eezybot_ros/install/setup.bash ]; then source /eezybot_ros/install/setup.bash; fi && exec "$@"' _ "${CMD_ARGS[@]}"
