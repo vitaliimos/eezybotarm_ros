@@ -38,7 +38,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'calibration_node = eezybotarm_vision.calibration_node:main',
+            'cube_detector_node = eezybotarm_vision.cube_detector_node:main',
             'sorting_node = eezybotarm_vision.sorting_node:main',
+            'debug_visualizer_node = eezybotarm_vision.debug_visualizer_node:main',
         ],
     },
 )

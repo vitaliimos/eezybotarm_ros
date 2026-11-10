@@ -35,6 +35,37 @@ class ZoneDetectionResult:
     marker_inset_x_mm: float = 0.0
     marker_inset_y_mm: float = 0.0
 
+    def to_msg(self, header=None):
+        """Serialize calibration result into WorkspaceCalibration ROS 2 message."""
+        from eezybotarm_interfaces.msg import WorkspaceCalibration
+
+        msg = WorkspaceCalibration()
+        if header is not None:
+            msg.header = header
+        msg.field_corners_px = [
+            float(val) for val in self.field_corners_px.reshape(8)
+        ]
+        msg.homography_matrix = [
+            float(val) for val in self.homography_matrix.reshape(9)
+        ]
+        msg.field_width_mm = float(self.field_width_mm)
+        msg.field_height_mm = float(self.field_height_mm)
+        msg.marker_inset_x_mm = float(self.marker_inset_x_mm)
+        msg.marker_inset_y_mm = float(self.marker_inset_y_mm)
+        return msg
+
+    @classmethod
+    def from_msg(cls, msg) -> 'ZoneDetectionResult | None':
+        """Reconstruct ZoneDetectionResult from a WorkspaceCalibration message."""
+        corners = np.array(msg.field_corners_px, dtype=np.float32).reshape(4, 2)
+        return _build_result_from_corners(
+            corners,
+            field_width_mm=float(msg.field_width_mm),
+            field_height_mm=float(msg.field_height_mm),
+            marker_inset_x_mm=float(msg.marker_inset_x_mm),
+            marker_inset_y_mm=float(msg.marker_inset_y_mm),
+        )
+
 
 @dataclass
 class _RingCandidate:

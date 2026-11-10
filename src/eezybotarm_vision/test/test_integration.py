@@ -1,4 +1,4 @@
-"""Integration test verifying end-to-end vision and sorting node pipeline."""
+"""Integration test verifying end-to-end 4-node vision and sorting pipeline."""
 
 import importlib.util
 import os
@@ -32,7 +32,7 @@ def _resolve_model_path() -> str | None:
     return None
 
 
-def _load_node_parameters(weights_path: str) -> list[Parameter]:
+def _load_node_parameters(node_name: str, extra: dict | None = None) -> list[Parameter]:
     vision_share = get_package_share_directory('eezybotarm_vision')
     desc_share = get_package_share_directory('eezybotarm_description')
 
@@ -40,11 +40,11 @@ def _load_node_parameters(weights_path: str) -> list[Parameter]:
     env_cfg_path = os.path.join(desc_share, 'config', 'environment.yaml')
 
     with open(vision_cfg_path, 'r', encoding='utf-8') as f:
-        vision_params = yaml.safe_load(f)['sorting_coordinator_node']['ros__parameters']
+        vision_params = yaml.safe_load(f)[node_name]['ros__parameters']
     with open(env_cfg_path, 'r', encoding='utf-8') as f:
         env_params = yaml.safe_load(f)['/**']['ros__parameters']
 
-    merged = {**vision_params, **env_params, 'weights_path': weights_path}
+    merged = {**vision_params, **env_params, **(extra or {})}
     return [Parameter(name=k, value=v) for k, v in merged.items()]
 
 
@@ -65,7 +65,10 @@ def _create_image_msg(node, frame: np.ndarray) -> Image:
     reason='TensorRT or onnxruntime and model file required',
 )
 def test_vision_pipeline_integration():
-    """Verify camera feed processing, zone detection, and cube classification."""
+    """Verify end-to-end processing across calibration, detector, coordinator, and visualizer."""
+    from eezybotarm_vision.calibration_node import WorkspaceCalibrationNode
+    from eezybotarm_vision.cube_detector_node import CubeDetectorNode
+    from eezybotarm_vision.debug_visualizer_node import DebugVisualizerNode
     from eezybotarm_vision.sorting_node import SortingCoordinatorNode, SortingState
 
     model_path = _resolve_model_path()
@@ -82,14 +85,26 @@ def test_vision_pipeline_integration():
         sample_frame = cv2.imread(sample_img_path)
         assert sample_frame is not None, f'Failed to read {sample_img_path}'
 
-        params = _load_node_parameters(model_path)
-        sort_node = SortingCoordinatorNode(parameter_overrides=params)
+        calib_node = WorkspaceCalibrationNode(
+            parameter_overrides=_load_node_parameters('calibration_node')
+        )
+        det_node = CubeDetectorNode(
+            parameter_overrides=_load_node_parameters(
+                'cube_detector_node', {'weights_path': model_path}
+            )
+        )
+        sort_node = SortingCoordinatorNode(
+            parameter_overrides=_load_node_parameters('sorting_coordinator_node')
+        )
+        viz_node = DebugVisualizerNode(
+            parameter_overrides=_load_node_parameters('debug_visualizer_node')
+        )
         test_node = rclpy.create_node('pipeline_test_helper')
         cam_pub = test_node.create_publisher(Image, '/camera/image_raw', 10)
 
         executor = rclpy.executors.SingleThreadedExecutor()
-        executor.add_node(sort_node)
-        executor.add_node(test_node)
+        for n in (calib_node, det_node, sort_node, viz_node, test_node):
+            executor.add_node(n)
 
         debug_images_received = []
         comp_images_received = []
@@ -104,16 +119,24 @@ def test_vision_pipeline_integration():
             10,
         )
 
+        # Allow DDS discovery before publishing camera frames
+        for _ in range(5):
+            executor.spin_once(timeout_sec=0.02)
+
         cam_pub.publish(_create_image_msg(test_node, sample_frame))
 
-        for _ in range(30):
+        for _ in range(40):
             executor.spin_once(timeout_sec=0.05)
-            if debug_images_received and comp_images_received:
+            if (
+                calib_node.calibration is not None
+                and debug_images_received
+                and comp_images_received
+            ):
                 break
 
-        assert sort_node.state == SortingState.SCANNING
-        assert sort_node.calibration is not None
-        assert set(sort_node.calibration.zones.keys()) == {'left', 'middle', 'right'}
+        assert calib_node.calibration is not None
+        assert set(calib_node.calibration.zones.keys()) == {'left', 'middle', 'right'}
+        assert sort_node.state in (SortingState.SCANNING, SortingState.CONFIRMING)
         assert len(debug_images_received) > 0
         assert len(comp_images_received) > 0
         assert comp_images_received[0].format == 'jpeg'

@@ -68,7 +68,31 @@ def generate_launch_description():
         output='screen',
     )
 
-    # 3. Sorting Coordinator node
+    # 3. Workspace Calibration node
+    calibration_node = Node(
+        package='eezybotarm_vision',
+        executable='calibration_node',
+        name='calibration_node',
+        parameters=[
+            config_file,
+            environment_config,
+        ],
+        output='screen',
+    )
+
+    # 4. Cube Detector node
+    cube_detector_node = Node(
+        package='eezybotarm_vision',
+        executable='cube_detector_node',
+        name='cube_detector_node',
+        parameters=[
+            config_file,
+            {'weights_path': weights_path},
+        ],
+        output='screen',
+    )
+
+    # 5. Sorting Coordinator node
     sorting_node = Node(
         package='eezybotarm_vision',
         executable='sorting_node',
@@ -76,12 +100,22 @@ def generate_launch_description():
         parameters=[
             config_file,
             environment_config,
-            {'weights_path': weights_path},
         ],
         output='screen',
     )
 
-    # 4. GUI image viewer for annotated stream (rqt_image_view)
+    # 6. Debug Visualizer node
+    debug_visualizer_node = Node(
+        package='eezybotarm_vision',
+        executable='debug_visualizer_node',
+        name='debug_visualizer_node',
+        parameters=[
+            config_file,
+        ],
+        output='screen',
+    )
+
+    # 7. GUI image viewer for annotated stream (rqt_image_view)
     rqt_image_view_node = Node(
         package='rqt_image_view',
         executable='rqt_image_view',
@@ -130,6 +164,9 @@ def generate_launch_description():
         ),
         real_camera_node,
         mock_camera_node,
+        calibration_node,
+        cube_detector_node,
         sorting_node,
+        debug_visualizer_node,
         rqt_image_view_node,
     ])

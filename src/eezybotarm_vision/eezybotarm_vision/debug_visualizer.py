@@ -22,6 +22,52 @@ class LocalizedCube:
     x_mm: float
     y_mm: float
 
+    def to_msg(self):
+        """Serialize localized cube into LocalizedCube ROS 2 message."""
+        from eezybotarm_interfaces.msg import LocalizedCube as LocalizedCubeMsg
+
+        msg = LocalizedCubeMsg()
+        det = self.detection
+        msg.class_id = int(det.class_id)
+        msg.class_name = str(det.class_name)
+        msg.confidence = float(det.confidence)
+        msg.bbox_xyxy = [float(v) for v in det.bbox_xyxy]
+        msg.center_px = [float(det.center_px[0]), float(det.center_px[1])]
+        msg.angle = float(det.angle)
+        msg.corners_px = [float(coord) for pt in det.corners for coord in pt]
+        msg.zone = str(self.zone)
+        msg.x_mm = float(self.x_mm)
+        msg.y_mm = float(self.y_mm)
+        return msg
+
+    @classmethod
+    def from_msg(cls, msg) -> 'LocalizedCube':
+        """Deserialize LocalizedCube ROS 2 message into LocalizedCube dataclass."""
+        corners = tuple(
+            (float(msg.corners_px[i]), float(msg.corners_px[i + 1]))
+            for i in range(0, 8, 2)
+        )
+        det = CubeDetection(
+            class_id=int(msg.class_id),
+            class_name=str(msg.class_name),
+            confidence=float(msg.confidence),
+            bbox_xyxy=(
+                float(msg.bbox_xyxy[0]),
+                float(msg.bbox_xyxy[1]),
+                float(msg.bbox_xyxy[2]),
+                float(msg.bbox_xyxy[3]),
+            ),
+            center_px=(float(msg.center_px[0]), float(msg.center_px[1])),
+            angle=float(msg.angle),
+            corners=corners,
+        )
+        return cls(
+            detection=det,
+            zone=str(msg.zone),
+            x_mm=float(msg.x_mm),
+            y_mm=float(msg.y_mm),
+        )
+
 
 class DebugVisualizer:
     """Renders debug overlays and publishes raw and compressed ROS 2 image streams."""
@@ -39,6 +85,13 @@ class DebugVisualizer:
         self.debug_image_pub = node.create_publisher(Image, raw_topic, 1)
         self.debug_compressed_pub = node.create_publisher(
             CompressedImage, f'{raw_topic}/compressed', 1
+        )
+
+    def has_subscribers(self) -> bool:
+        """Return True if at least one subscriber is listening to raw or compressed stream."""
+        return (
+            self.debug_image_pub.get_subscription_count() > 0
+            or self.debug_compressed_pub.get_subscription_count() > 0
         )
 
     def publish(
@@ -88,7 +141,7 @@ class DebugVisualizer:
     ) -> np.ndarray:
         annotated = frame.copy()
 
-        if state_text == 'CALIBRATING':
+        if calibration is None or state_text == 'CALIBRATING':
             cv2.putText(
                 annotated,
                 'Calibrating: Looking for Workspace...',
@@ -98,7 +151,7 @@ class DebugVisualizer:
                 color=(0, 0, 255),
                 thickness=2,
             )
-        elif calibration is not None:
+        else:
             self._draw_zones(annotated, calibration)
 
         for cube in detections:
@@ -168,7 +221,7 @@ class DebugVisualizer:
             color=color,
             thickness=2,
         )
-        if cube.zone != 'outside':
+        if cube.zone not in ('outside', 'uncalibrated'):
             coords_lbl = f'({cube.x_mm:.0f}, {cube.y_mm:.0f})mm'
             cv2.putText(
                 img,

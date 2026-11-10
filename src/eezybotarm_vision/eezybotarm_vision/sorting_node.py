@@ -1,31 +1,23 @@
-"""Sorting Coordinator Node for EezyBotArm computer vision and pick-and-place."""
+"""Sorting Coordinator Node for EezyBotArm pick-and-place state machine."""
 
 from enum import Enum
 import time
 
-from cv_bridge import CvBridge
 from eezybotarm_interfaces.action import PickObject
-import numpy as np
+from eezybotarm_interfaces.msg import LocalizedCubeArray
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
-from sensor_msgs.msg import Image
+from rclpy.qos import DurabilityPolicy, QoSProfile
+from std_msgs.msg import String
 
 from .coordinate_mapper import CoordinateMapper
-from .debug_visualizer import DebugVisualizer, LocalizedCube
-from .yolo_detector import CubeDetection, YoloCubeDetector
-from .zone_detector import (
-    detect_zones,
-    get_real_coordinates,
-    identify_zone,
-    smooth_calibration,
-    ZoneDetectionResult,
-)
+from .debug_visualizer import LocalizedCube
+from .yolo_detector import CubeDetection
 
 
 class SortingState(Enum):
-    CALIBRATING = 'CALIBRATING'
     SCANNING = 'SCANNING'
     CONFIRMING = 'CONFIRMING'
     EXECUTING = 'EXECUTING'
@@ -33,24 +25,17 @@ class SortingState(Enum):
 
 
 class SortingCoordinatorNode(Node):
-    """Orchestrate workspace calibration, cube detection, and pick-and-place actions."""
+    """Track candidate cube stability in the middle zone and dispatch pick-and-place goals."""
 
     TARGET_ZONE_BY_CLASS = {'white_cube': 'left', 'green_cube': 'right'}
 
     def __init__(self, **kwargs):
         super().__init__('sorting_coordinator_node', **kwargs)
 
-        self.bridge = CvBridge()
-
-        # Vision and coordinator parameters
-        self.declare_parameter('weights_path', Parameter.Type.STRING)
-        self.declare_parameter('conf_threshold', Parameter.Type.DOUBLE)
+        # Coordinator parameters
         self.declare_parameter('stable_frames_required', Parameter.Type.INTEGER)
         self.declare_parameter('cooldown_duration_sec', Parameter.Type.DOUBLE)
-        self.declare_parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER)
         self.declare_parameter('action_name', Parameter.Type.STRING)
-        self.declare_parameter('recalibration_interval_sec', Parameter.Type.DOUBLE)
-        self.declare_parameter('calibration_smoothing_alpha', Parameter.Type.DOUBLE)
 
         # Physical workspace parameters (supplied via environment.yaml)
         self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
@@ -62,14 +47,9 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
         self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
-        weights_path = self.get_parameter('weights_path').value
-        conf_thresh = self.get_parameter('conf_threshold').value
         self.stable_frames_required = self.get_parameter('stable_frames_required').value
         self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
-        jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
         action_name = self.get_parameter('action_name').value
-        self.recalibration_interval_sec = self.get_parameter('recalibration_interval_sec').value
-        self.calibration_smoothing_alpha = self.get_parameter('calibration_smoothing_alpha').value
 
         self.coord_mapper = CoordinateMapper(
             table_width_m=self.get_parameter('table_width_m').value,
@@ -82,40 +62,35 @@ class SortingCoordinatorNode(Node):
             sticker_height_m=self.get_parameter('sticker_height_m').value,
         )
 
-        self.get_logger().info(f'Loading Cube Detector with: "{weights_path}"...')
-        try:
-            self.detector = YoloCubeDetector(
-                weights_path=weights_path,
-                conf_threshold=conf_thresh,
-            )
-            self.get_logger().info('Cube detector initialized successfully.')
-        except Exception as exc:
-            self.get_logger().fatal(
-                f'Failed to initialize Cube detector from "{weights_path}": {exc}. Stopping node.'
-            )
-            raise
-
         self.action_client = ActionClient(self, PickObject, action_name)
 
+        latched_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.status_pub = self.create_publisher(
+            String,
+            '/eezybotarm_vision/sorting_status',
+            latched_qos,
+        )
         self.subscription = self.create_subscription(
-            Image,
-            '/camera/image_raw',
-            self.image_callback,
+            LocalizedCubeArray,
+            '/eezybotarm_vision/detections',
+            self.detections_callback,
             1,
         )
-        self.visualizer = DebugVisualizer(node=self, jpeg_quality=jpeg_quality)
 
-        self._state = SortingState.CALIBRATING
-        self.calibration: ZoneDetectionResult | None = None
+        self._state = SortingState.SCANNING
         self.candidate_cube: CubeDetection | None = None
         self.candidate_frames_count = 0
         self.cooldown_start_time = 0.0
-        self.last_recalibration_time = 0.0
         self.current_action_phase = ''
-        self._is_processing = False
+        self._last_published_status = ''
+
+        self.cooldown_timer = self.create_timer(0.1, self._handle_cooldown)
+        self._publish_status()
 
         self.get_logger().info(f'Initial state: {self._state.value}')
-        self.get_logger().info('Sorting Coordinator Node ready and monitoring /camera/image_raw')
+        self.get_logger().info(
+            'Sorting Coordinator Node ready and monitoring /eezybotarm_vision/detections'
+        )
 
     @property
     def state(self) -> SortingState:
@@ -127,68 +102,30 @@ class SortingCoordinatorNode(Node):
             self.get_logger().info(f'State changed: {self._state.value} -> {new_state.value}')
             self._state = new_state
 
-    def image_callback(self, msg: Image) -> None:
-        if self._is_processing:
-            return
-        self._is_processing = True
-        try:
-            self._handle_image(msg)
-        finally:
-            self._is_processing = False
+    def _format_status(self) -> str:
+        if self.state == SortingState.CONFIRMING:
+            return f'CONFIRMING ({self.candidate_frames_count}/{self.stable_frames_required})'
+        if self.state == SortingState.EXECUTING and self.current_action_phase:
+            return f'EXECUTING [{self.current_action_phase}]'
+        return self.state.value
 
-    def _convert_image(self, msg: Image) -> np.ndarray | None:
-        try:
-            return self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        except Exception as exc:
-            self.get_logger().warn(
-                f'Failed to convert image frame: {exc}', throttle_duration_sec=2.0
-            )
-            return None
-
-    def _detect_workspace_zones(self, frame: np.ndarray) -> ZoneDetectionResult | None:
-        return detect_zones(
-            frame,
-            field_width_mm=self.coord_mapper.table_width_mm,
-            field_height_mm=self.coord_mapper.table_depth_mm,
-            marker_inset_x_mm=self.coord_mapper.marker_inset_x_mm,
-            marker_inset_y_mm=self.coord_mapper.marker_inset_y_mm,
-        )
-
-    def _handle_calibrating(self, frame: np.ndarray) -> None:
-        detected_zones = self._detect_workspace_zones(frame)
-        if detected_zones is not None:
-            self.calibration = detected_zones
-            self.last_recalibration_time = time.monotonic()
-            self.get_logger().info('Workspace zones detected and locked.')
-            self.state = SortingState.SCANNING
+    def _publish_status(self) -> None:
+        status_str = self._format_status()
+        if status_str != self._last_published_status:
+            self._last_published_status = status_str
+            msg = String()
+            msg.data = status_str
+            self.status_pub.publish(msg)
 
     def _handle_cooldown(self) -> None:
+        if self.state != SortingState.COOLDOWN:
+            return
         if time.monotonic() - self.cooldown_start_time >= self.cooldown_duration_sec:
             self.state = SortingState.SCANNING
             self.candidate_cube = None
             self.candidate_frames_count = 0
             self.get_logger().info('Cooldown finished, resumed scanning.')
-
-    def _detect_and_map_cubes(self, frame: np.ndarray) -> list[LocalizedCube]:
-        assert self.calibration is not None
-        raw_detections = self.detector.predict(frame)
-        cubes: list[LocalizedCube] = []
-
-        for det in raw_detections:
-            x_mm, y_mm = get_real_coordinates(
-                det.center_px[0],
-                det.center_px[1],
-                self.calibration.homography_matrix,
-            )
-            zone = identify_zone(
-                x_mm,
-                y_mm,
-                self.coord_mapper.table_width_mm,
-                self.coord_mapper.table_depth_mm,
-            )
-            cubes.append(LocalizedCube(detection=det, zone=zone, x_mm=x_mm, y_mm=y_mm))
-
-        return cubes
+            self._publish_status()
 
     @staticmethod
     def _is_cube_match(
@@ -221,6 +158,7 @@ class SortingCoordinatorNode(Node):
                 self.candidate_frames_count = 1
 
             self.state = SortingState.CONFIRMING
+            self._publish_status()
             if self.candidate_frames_count >= self.stable_frames_required:
                 self.get_logger().info(
                     f'Cube confirmed: {det.class_name} at '
@@ -232,72 +170,25 @@ class SortingCoordinatorNode(Node):
             self.candidate_cube = None
             self.candidate_frames_count = 0
             self.state = SortingState.SCANNING
+            self._publish_status()
 
-    def _recalibrate_if_needed(self, frame: np.ndarray) -> None:
-        if self.state != SortingState.SCANNING or self.calibration is None:
+    def detections_callback(self, msg: LocalizedCubeArray) -> None:
+        if self.state == SortingState.COOLDOWN:
+            self._handle_cooldown()
             return
-        now = time.monotonic()
-        if now - self.last_recalibration_time < self.recalibration_interval_sec:
+        if self.state not in (SortingState.SCANNING, SortingState.CONFIRMING):
             return
 
-        self.last_recalibration_time = now
-        detected_zones = self._detect_workspace_zones(frame)
-        if detected_zones is not None:
-            self.calibration = smooth_calibration(
-                self.calibration,
-                detected_zones,
-                alpha=self.calibration_smoothing_alpha,
-            )
-            self.get_logger().debug('Workspace calibration smoothed and updated.')
-
-    def _handle_scanning(self, frame: np.ndarray) -> list[LocalizedCube]:
-        self._recalibrate_if_needed(frame)
-        all_cubes = self._detect_and_map_cubes(frame)
+        all_cubes = [LocalizedCube.from_msg(c) for c in msg.cubes]
         middle_cubes = [c for c in all_cubes if c.zone == 'middle']
         self._update_candidate_tracking(middle_cubes)
-        return all_cubes
-
-    def _publish_debug_image(
-        self,
-        frame: np.ndarray,
-        detections: list[LocalizedCube],
-        header,
-    ) -> None:
-        status_extra = ''
-        if self.state == SortingState.CONFIRMING:
-            status_extra = f' ({self.candidate_frames_count}/{self.stable_frames_required})'
-        elif self.state == SortingState.EXECUTING:
-            status_extra = f' [{self.current_action_phase}]'
-
-        self.visualizer.publish(
-            frame=frame,
-            header=header,
-            state_text=self.state.value,
-            calibration=self.calibration,
-            detections=detections,
-            status_extra=status_extra,
-        )
-
-    def _handle_image(self, msg: Image) -> None:
-        frame = self._convert_image(msg)
-        if frame is None:
-            return
-
-        detections: list[LocalizedCube] = []
-
-        if self.state == SortingState.CALIBRATING:
-            self._handle_calibrating(frame)
-        elif self.state == SortingState.COOLDOWN:
-            self._handle_cooldown()
-        elif self.state in (SortingState.SCANNING, SortingState.CONFIRMING):
-            detections = self._handle_scanning(frame)
-
-        self._publish_debug_image(frame, detections, msg.header)
 
     def _reset_to_scanning(self) -> None:
         self.candidate_cube = None
         self.candidate_frames_count = 0
+        self.current_action_phase = ''
         self.state = SortingState.SCANNING
+        self._publish_status()
 
     def _dispatch_pick_and_place(
         self, det: CubeDetection, pick_x_mm: float, pick_y_mm: float
@@ -315,6 +206,7 @@ class SortingCoordinatorNode(Node):
 
         self.state = SortingState.EXECUTING
         self.current_action_phase = 'SENDING_GOAL'
+        self._publish_status()
 
         x_m, y_m, z_m = self.coord_mapper.table_to_robot_xyz(pick_x_mm, pick_y_mm)
         pick_pose = self.coord_mapper.create_pose_stamped(x_m, y_m, z_m)
@@ -356,6 +248,7 @@ class SortingCoordinatorNode(Node):
 
     def _action_feedback_callback(self, feedback_msg):
         self.current_action_phase = feedback_msg.feedback.current_phase
+        self._publish_status()
         self.get_logger().debug(
             f'Action phase: {self.current_action_phase} '
             f'({feedback_msg.feedback.progress_percentage:.0f}%)'
@@ -371,8 +264,10 @@ class SortingCoordinatorNode(Node):
         except Exception as exc:
             self.get_logger().error(f'Pick-and-place action failed: {exc}')
 
+        self.current_action_phase = ''
         self.state = SortingState.COOLDOWN
         self.cooldown_start_time = time.monotonic()
+        self._publish_status()
 
 
 def main(args=None):

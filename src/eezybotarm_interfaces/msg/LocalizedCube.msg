@@ -1,0 +1,10 @@
+int32 class_id
+string class_name
+float32 confidence
+float32[4] bbox_xyxy
+float32[2] center_px
+float32 angle
+float32[8] corners_px
+string zone
+float32 x_mm
+float32 y_mm

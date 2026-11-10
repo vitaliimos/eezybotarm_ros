@@ -19,14 +19,23 @@ mock_camera:
     publish_rate: 15.0
     frame_id: "camera_optical_frame"
 
-sorting_coordinator_node:
+calibration_node:
+  ros__parameters:
+    recalibration_interval_sec: 3.0
+    calibration_smoothing_alpha: 0.25
+
+cube_detector_node:
   ros__parameters:
     # Path to TensorRT engine (.engine). Default target location on Jetson.
     weights_path: "/usr/share/models/model.engine"
     conf_threshold: 0.5
+
+sorting_coordinator_node:
+  ros__parameters:
     stable_frames_required: 5
     cooldown_duration_sec: 1.0
     action_name: "pick_and_place"
+
+debug_visualizer_node:
+  ros__parameters:
     debug_image_jpeg_quality: 80
-    recalibration_interval_sec: 3.0
-    calibration_smoothing_alpha: 0.25
