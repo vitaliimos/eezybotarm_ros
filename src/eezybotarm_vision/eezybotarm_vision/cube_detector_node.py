@@ -9,7 +9,7 @@ from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import Image
 
-from .debug_visualizer import LocalizedCube
+from .localized_cube import LocalizedCube
 from .yolo_detector import YoloCubeDetector
 from .zone_detector import get_real_coordinates, identify_zone
 

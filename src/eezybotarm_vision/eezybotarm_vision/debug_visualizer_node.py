@@ -10,7 +10,8 @@ from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
-from .debug_visualizer import DebugVisualizer, LocalizedCube
+from .debug_visualizer import DebugVisualizer
+from .localized_cube import LocalizedCube
 from .zone_detector import ZoneDetectionResult
 
 

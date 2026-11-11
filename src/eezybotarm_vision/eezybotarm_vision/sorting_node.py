@@ -2,6 +2,7 @@
 
 from enum import Enum
 import time
+from typing import ClassVar
 
 from eezybotarm_interfaces.action import PickObject
 from eezybotarm_interfaces.msg import LocalizedCubeArray
@@ -12,8 +13,9 @@ from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from std_msgs.msg import String
 
+from .candidate_tracker import CandidateTracker
 from .coordinate_mapper import CoordinateMapper
-from .debug_visualizer import LocalizedCube
+from .localized_cube import LocalizedCube
 from .yolo_detector import CubeDetection
 
 
@@ -27,7 +29,10 @@ class SortingState(Enum):
 class SortingCoordinatorNode(Node):
     """Track candidate cube stability in the middle zone and dispatch pick-and-place goals."""
 
-    TARGET_ZONE_BY_CLASS = {'white_cube': 'left', 'green_cube': 'right'}
+    TARGET_ZONE_BY_CLASS: ClassVar[dict[str, str]] = {
+        'white_cube': 'left',
+        'green_cube': 'right',
+    }
 
     def __init__(self, **kwargs):
         super().__init__('sorting_coordinator_node', **kwargs)
@@ -47,9 +52,11 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
         self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
-        self.stable_frames_required = self.get_parameter('stable_frames_required').value
+        stable_frames_required = self.get_parameter('stable_frames_required').value
         self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
         action_name = self.get_parameter('action_name').value
+
+        self.tracker = CandidateTracker(stable_frames_required=stable_frames_required)
 
         self.coord_mapper = CoordinateMapper(
             table_width_m=self.get_parameter('table_width_m').value,
@@ -78,8 +85,6 @@ class SortingCoordinatorNode(Node):
         )
 
         self._state = SortingState.SCANNING
-        self.candidate_cube: CubeDetection | None = None
-        self.candidate_frames_count = 0
         self.cooldown_start_time = 0.0
         self.current_action_phase = ''
         self._last_published_status = ''
@@ -99,12 +104,14 @@ class SortingCoordinatorNode(Node):
     @state.setter
     def state(self, new_state: SortingState) -> None:
         if self._state != new_state:
-            self.get_logger().info(f'State changed: {self._state.value} -> {new_state.value}')
+            self.get_logger().info(
+                f'State changed: {self._state.value} -> {new_state.value}'
+            )
             self._state = new_state
 
     def _format_status(self) -> str:
         if self.state == SortingState.CONFIRMING:
-            return f'CONFIRMING ({self.candidate_frames_count}/{self.stable_frames_required})'
+            return f'CONFIRMING ({self.tracker.frame_count}/{self.tracker.stable_frames_required})'
         if self.state == SortingState.EXECUTING and self.current_action_phase:
             return f'EXECUTING [{self.current_action_phase}]'
         return self.state.value
@@ -122,53 +129,26 @@ class SortingCoordinatorNode(Node):
             return
         if time.monotonic() - self.cooldown_start_time >= self.cooldown_duration_sec:
             self.state = SortingState.SCANNING
-            self.candidate_cube = None
-            self.candidate_frames_count = 0
+            self.tracker.reset()
             self.get_logger().info('Cooldown finished, resumed scanning.')
             self._publish_status()
 
-    @staticmethod
-    def _is_cube_match(
-        a: CubeDetection, b: CubeDetection, max_dist_px: float = 25.0
-    ) -> bool:
-        return (
-            a.class_id == b.class_id
-            and abs(a.center_px[0] - b.center_px[0]) < max_dist_px
-            and abs(a.center_px[1] - b.center_px[1]) < max_dist_px
-        )
-
     def _update_candidate_tracking(self, middle_cubes: list[LocalizedCube]) -> None:
-        matched_cube: LocalizedCube | None = None
-        if self.candidate_cube is not None:
-            for cube in middle_cubes:
-                if self._is_cube_match(self.candidate_cube, cube.detection):
-                    matched_cube = cube
-                    break
-
-        if matched_cube is None and middle_cubes:
-            matched_cube = middle_cubes[0]
-
-        if matched_cube is not None:
-            det = matched_cube.detection
-            if self.candidate_cube is not None and self._is_cube_match(self.candidate_cube, det):
-                self.candidate_cube = det
-                self.candidate_frames_count += 1
-            else:
-                self.candidate_cube = det
-                self.candidate_frames_count = 1
-
+        confirmed_cube = self.tracker.update(middle_cubes)
+        if confirmed_cube is not None:
+            det = confirmed_cube.detection
             self.state = SortingState.CONFIRMING
             self._publish_status()
-            if self.candidate_frames_count >= self.stable_frames_required:
-                self.get_logger().info(
-                    f'Cube confirmed: {det.class_name} at '
-                    f'({matched_cube.x_mm:.1f}, {matched_cube.y_mm:.1f}) mm. '
-                    'Dispatching pick and place goal!'
-                )
-                self._dispatch_pick_and_place(det, matched_cube.x_mm, matched_cube.y_mm)
+            self.get_logger().info(
+                f'Cube confirmed: {det.class_name} at '
+                f'({confirmed_cube.x_mm:.1f}, {confirmed_cube.y_mm:.1f}) mm. '
+                'Dispatching pick and place goal!'
+            )
+            self._dispatch_pick_and_place(det, confirmed_cube.x_mm, confirmed_cube.y_mm)
+        elif self.tracker.candidate is not None:
+            self.state = SortingState.CONFIRMING
+            self._publish_status()
         else:
-            self.candidate_cube = None
-            self.candidate_frames_count = 0
             self.state = SortingState.SCANNING
             self._publish_status()
 
@@ -184,8 +164,7 @@ class SortingCoordinatorNode(Node):
         self._update_candidate_tracking(middle_cubes)
 
     def _reset_to_scanning(self) -> None:
-        self.candidate_cube = None
-        self.candidate_frames_count = 0
+        self.tracker.reset()
         self.current_action_phase = ''
         self.state = SortingState.SCANNING
         self._publish_status()
@@ -200,7 +179,9 @@ class SortingCoordinatorNode(Node):
 
         target_zone = self.TARGET_ZONE_BY_CLASS.get(det.class_name)
         if target_zone is None:
-            self.get_logger().error(f'No target zone configured for class "{det.class_name}"')
+            self.get_logger().error(
+                f'No target zone configured for class "{det.class_name}"'
+            )
             self._reset_to_scanning()
             return
 

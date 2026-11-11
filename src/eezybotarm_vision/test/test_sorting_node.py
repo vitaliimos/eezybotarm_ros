@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from eezybotarm_interfaces.msg import LocalizedCubeArray
-from eezybotarm_vision.debug_visualizer import LocalizedCube
+from eezybotarm_vision.localized_cube import LocalizedCube
 from eezybotarm_vision.sorting_node import SortingCoordinatorNode, SortingState
 from eezybotarm_vision.yolo_detector import CubeDetection
 import pytest
@@ -87,34 +87,22 @@ def test_handle_cooldown():
         node.state = SortingState.COOLDOWN
         node.cooldown_start_time = 100.0
         node.cooldown_duration_sec = 2.5
-        node.candidate_cube = _make_cube(0, 'green_cube', 0.9, (0, 0, 10, 10), (5.0, 5.0))
-        node.candidate_frames_count = 5
+        node.tracker.candidate = LocalizedCube(
+            detection=_make_cube(0, 'green_cube', 0.9, (0, 0, 10, 10), (5.0, 5.0)),
+            zone='middle', x_mm=0.0, y_mm=0.0,
+        )
+        node.tracker.frame_count = 5
 
         with patch('time.monotonic', return_value=101.0):
             node._handle_cooldown()
             assert node.state == SortingState.COOLDOWN
-            assert node.candidate_cube is not None
+            assert node.tracker.candidate is not None
 
         with patch('time.monotonic', return_value=103.0):
             node._handle_cooldown()
             assert node.state == SortingState.SCANNING
-            assert node.candidate_cube is None
-            assert node.candidate_frames_count == 0
-    finally:
-        node.destroy_node()
-
-
-def test_is_cube_match():
-    node = _make_test_node()
-    try:
-        base_cube = _make_cube(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
-        same_cube = _make_cube(0, 'green_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
-        diff_class = _make_cube(1, 'white_cube', 0.85, (12, 12, 32, 32), (22.0, 22.0))
-        far_cube = _make_cube(0, 'green_cube', 0.85, (80, 80, 100, 100), (90.0, 90.0))
-
-        assert node._is_cube_match(base_cube, same_cube) is True
-        assert node._is_cube_match(base_cube, diff_class) is False
-        assert node._is_cube_match(base_cube, far_cube) is False
+            assert node.tracker.candidate is None
+            assert node.tracker.frame_count == 0
     finally:
         node.destroy_node()
 
@@ -122,25 +110,25 @@ def test_is_cube_match():
 def test_update_candidate_tracking():
     node = _make_test_node()
     try:
-        node.stable_frames_required = 2
+        node.tracker.stable_frames_required = 2
         det = _make_cube(0, 'green_cube', 0.9, (10, 10, 30, 30), (20.0, 20.0))
         item = LocalizedCube(detection=det, zone='middle', x_mm=150.0, y_mm=100.0)
 
         node._update_candidate_tracking([item])
         assert node.state == SortingState.CONFIRMING
-        assert node.candidate_cube == det
-        assert node.candidate_frames_count == 1
+        assert node.tracker.candidate.detection == det
+        assert node.tracker.frame_count == 1
         assert node._format_status() == 'CONFIRMING (1/2)'
 
         with patch.object(node, '_dispatch_pick_and_place') as mock_dispatch:
             node._update_candidate_tracking([item])
-            assert node.candidate_frames_count == 2
+            assert node.tracker.frame_count == 2
             mock_dispatch.assert_called_once_with(det, 150.0, 100.0)
 
         node._update_candidate_tracking([])
         assert node.state == SortingState.SCANNING
-        assert node.candidate_cube is None
-        assert node.candidate_frames_count == 0
+        assert node.tracker.candidate is None
+        assert node.tracker.frame_count == 0
     finally:
         node.destroy_node()
 
@@ -158,8 +146,8 @@ def test_detections_callback_filters_middle_zone():
 
         node.detections_callback(msg)
         assert node.state == SortingState.CONFIRMING
-        assert node.candidate_cube is not None
-        assert node.candidate_cube.class_name == 'white_cube'
-        assert node.candidate_frames_count == 1
+        assert node.tracker.candidate is not None
+        assert node.tracker.candidate.detection.class_name == 'white_cube'
+        assert node.tracker.frame_count == 1
     finally:
         node.destroy_node()
