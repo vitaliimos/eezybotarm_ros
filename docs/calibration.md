@@ -108,7 +108,7 @@ Servo parameters are configured in [`src/eezybotarm_moveit_config/config/eezybot
 
 ```mermaid
 flowchart LR
-    CAM["USB Camera Image (1920x1080 / 640x640)"] --> YOLO["YOLO Object Detector (TensorRT / ONNX)"]
+    CAM["USB Camera Image (1280x720)"] --> YOLO["YOLO Object Detector (TensorRT / ONNX)"]
     YOLO --> DET["Cube BBox & Angle (u, v, θ)"]
     DET --> MAPPER["CoordinateMapper (Homography / Perspective Transform)"]
     MAPPER --> POSE["3D Target Pose (base_link frame: x, y, z)"]
@@ -116,7 +116,7 @@ flowchart LR
 ```
 
 ### 1. Vision Detection
-- The `eezybotarm_vision` node runs YOLO-OBB inference (accelerated via TensorRT `.engine` on Jetson, or ONNX Runtime on local dev PC).
+- The `cube_detector_node` (in package `eezybotarm_vision`) runs YOLO-OBB inference (accelerated via TensorRT `.engine` on Jetson, or ONNX Runtime on local dev PC).
 - The model is trained on **two target classes**:
   - `white_cube`: Standard white cube ($25\text{ mm}$).
   - `green_cube`: Khaki / olive green cube ($25\text{ mm}$) — designated internally as `green_cube` across the YOLO model, dataset labels, and sorting coordinator.
@@ -142,12 +142,14 @@ flowchart LR
 
 ### Test Pick-and-Place Action
 ```bash
-# Send test pick goal at specified coordinates
+# Send test pick goal at specified coordinates (with target and destination poses)
 ros2 action send_goal /pick_and_place eezybotarm_interfaces/action/PickObject \
-  "{object_class: 'white_cube', target_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.22, y: 0.0, z: 0.1025}, orientation: {w: 1.0}}}}" \
+  "{object_class: 'white_cube', \
+    target_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.22, y: 0.0, z: 0.1025}, orientation: {w: 1.0}}}, \
+    place_pose: {header: {frame_id: 'base_link'}, pose: {position: {x: 0.22, y: -0.09, z: 0.1025}, orientation: {w: 1.0}}}}" \
   --feedback
 ```
 Or execute the helper script:
 ```bash
-./move.sh
+./scripts/test_pickup.sh
 ```

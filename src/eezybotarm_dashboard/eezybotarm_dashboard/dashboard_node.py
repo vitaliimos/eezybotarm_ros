@@ -49,8 +49,6 @@ class EezybotDashboardNode(Node):
         self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
         self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
         self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
         self.host = self.get_parameter('host').value
         self.port = self.get_parameter('port').value
@@ -64,8 +62,6 @@ class EezybotDashboardNode(Node):
         robot_y_offset_m = self.get_parameter('robot_y_offset_m').value
         table_z_m = self.get_parameter('table_z_m').value
         cube_height_m = self.get_parameter('cube_height_m').value
-        sticker_width_m = self.get_parameter('sticker_width_m').value
-        sticker_height_m = self.get_parameter('sticker_height_m').value
 
         self.mapper = CoordinateMapper(
             table_width_m=table_width_m,
@@ -74,8 +70,6 @@ class EezybotDashboardNode(Node):
             robot_y_offset_m=robot_y_offset_m,
             table_z_m=table_z_m,
             cube_height_m=cube_height_m,
-            sticker_width_m=sticker_width_m,
-            sticker_height_m=sticker_height_m,
         )
 
         self.cb_group = ReentrantCallbackGroup()

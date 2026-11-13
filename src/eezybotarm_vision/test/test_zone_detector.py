@@ -52,11 +52,7 @@ def test_coordinate_mapper():
         robot_y_offset_m=0.0,
         table_z_m=0.02,
         cube_height_m=0.03,
-        sticker_width_m=0.030,
-        sticker_height_m=0.015,
     )
-    assert abs(mapper.marker_inset_x_mm - 15.0) < 1e-4
-    assert abs(mapper.marker_inset_y_mm - 7.5) < 1e-4
 
     xr, yr, zr = mapper.table_to_robot_xyz(150.0, 100.0)
     assert abs(xr - 0.22) < 1e-4

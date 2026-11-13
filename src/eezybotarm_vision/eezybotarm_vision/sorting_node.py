@@ -1,7 +1,6 @@
 """Sorting Coordinator Node for EezyBotArm pick-and-place state machine."""
 
 from enum import Enum
-import time
 from typing import ClassVar
 
 from eezybotarm_interfaces.action import PickObject
@@ -39,6 +38,7 @@ class SortingCoordinatorNode(Node):
 
         # Coordinator parameters
         self.declare_parameter('stable_frames_required', Parameter.Type.INTEGER)
+        self.declare_parameter('tracking_tolerance_mm', Parameter.Type.DOUBLE)
         self.declare_parameter('cooldown_duration_sec', Parameter.Type.DOUBLE)
         self.declare_parameter('action_name', Parameter.Type.STRING)
 
@@ -49,14 +49,18 @@ class SortingCoordinatorNode(Node):
         self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
         self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
         self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
-        stable_frames_required = self.get_parameter('stable_frames_required').value
-        self.cooldown_duration_sec = self.get_parameter('cooldown_duration_sec').value
+        stable_frames_required: int = self.get_parameter('stable_frames_required').value
+        tracking_tolerance_mm: float = self.get_parameter('tracking_tolerance_mm').value
+        self.cooldown_duration_sec: float = self.get_parameter(
+            'cooldown_duration_sec'
+        ).value
         action_name = self.get_parameter('action_name').value
 
-        self.tracker = CandidateTracker(stable_frames_required=stable_frames_required)
+        self.tracker = CandidateTracker(
+            stable_frames_required=stable_frames_required,
+            tolerance_mm=tracking_tolerance_mm,
+        )
 
         self.coord_mapper = CoordinateMapper(
             table_width_m=self.get_parameter('table_width_m').value,
@@ -65,8 +69,6 @@ class SortingCoordinatorNode(Node):
             robot_y_offset_m=self.get_parameter('robot_y_offset_m').value,
             table_z_m=self.get_parameter('table_z_m').value,
             cube_height_m=self.get_parameter('cube_height_m').value,
-            sticker_width_m=self.get_parameter('sticker_width_m').value,
-            sticker_height_m=self.get_parameter('sticker_height_m').value,
         )
 
         self.action_client = ActionClient(self, PickObject, action_name)
@@ -85,11 +87,10 @@ class SortingCoordinatorNode(Node):
         )
 
         self._state = SortingState.SCANNING
-        self.cooldown_start_time = 0.0
         self.current_action_phase = ''
         self._last_published_status = ''
+        self._cooldown_timer = None
 
-        self.cooldown_timer = self.create_timer(0.1, self._handle_cooldown)
         self._publish_status()
 
         self.get_logger().info(f'Initial state: {self._state.value}')
@@ -124,14 +125,27 @@ class SortingCoordinatorNode(Node):
             msg.data = status_str
             self.status_pub.publish(msg)
 
-    def _handle_cooldown(self) -> None:
+    def _cancel_cooldown_timer(self) -> None:
+        if self._cooldown_timer is not None:
+            self._cooldown_timer.cancel()
+            self.destroy_timer(self._cooldown_timer)
+            self._cooldown_timer = None
+
+    def _start_cooldown_timer(self) -> None:
+        self._cancel_cooldown_timer()
+        if self.cooldown_duration_sec <= 0.0:
+            self._on_cooldown_expired()
+            return
+        self._cooldown_timer = self.create_timer(
+            self.cooldown_duration_sec, self._on_cooldown_expired
+        )
+
+    def _on_cooldown_expired(self) -> None:
+        self._cancel_cooldown_timer()
         if self.state != SortingState.COOLDOWN:
             return
-        if time.monotonic() - self.cooldown_start_time >= self.cooldown_duration_sec:
-            self.state = SortingState.SCANNING
-            self.tracker.reset()
-            self.get_logger().info('Cooldown finished, resumed scanning.')
-            self._publish_status()
+        self.get_logger().info('Cooldown finished, resumed scanning.')
+        self._reset_to_scanning()
 
     def _update_candidate_tracking(self, middle_cubes: list[LocalizedCube]) -> None:
         confirmed_cube = self.tracker.update(middle_cubes)
@@ -149,13 +163,9 @@ class SortingCoordinatorNode(Node):
             self.state = SortingState.CONFIRMING
             self._publish_status()
         else:
-            self.state = SortingState.SCANNING
-            self._publish_status()
+            self._reset_to_scanning()
 
     def detections_callback(self, msg: LocalizedCubeArray) -> None:
-        if self.state == SortingState.COOLDOWN:
-            self._handle_cooldown()
-            return
         if self.state not in (SortingState.SCANNING, SortingState.CONFIRMING):
             return
 
@@ -164,6 +174,7 @@ class SortingCoordinatorNode(Node):
         self._update_candidate_tracking(middle_cubes)
 
     def _reset_to_scanning(self) -> None:
+        self._cancel_cooldown_timer()
         self.tracker.reset()
         self.current_action_phase = ''
         self.state = SortingState.SCANNING
@@ -247,8 +258,8 @@ class SortingCoordinatorNode(Node):
 
         self.current_action_phase = ''
         self.state = SortingState.COOLDOWN
-        self.cooldown_start_time = time.monotonic()
         self._publish_status()
+        self._start_cooldown_timer()
 
 
 def main(args=None):

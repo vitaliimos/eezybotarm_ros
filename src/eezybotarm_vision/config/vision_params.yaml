@@ -33,6 +33,7 @@ cube_detector_node:
 sorting_coordinator_node:
   ros__parameters:
     stable_frames_required: 5
+    tracking_tolerance_mm: 10.0
     cooldown_duration_sec: 1.0
     action_name: "pick_and_place"
 

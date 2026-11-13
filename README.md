@@ -40,6 +40,7 @@ Detailed guides for recreating and deploying the robot workcell:
 | 🛠️ **[Mechanical Assembly & 3D Printing Guide](docs/assembly.md)** | PETG print settings, Bill of Materials, modular quick-release table legs ([`docs/models/`](docs/models/)), fasteners, arm assembly, and camera stand setup. |
 | ⚡ **[Hardware & Wiring Guide](docs/hardware.md)** | Electronics schematics, PCA9685 I2C connections, Jetson 40-pin header, power isolation, and control panel buttons. |
 | 📐 **[Calibration & Workspace Guide](docs/calibration.md)** | Single Source of Truth (`environment.yaml`), homography coordinate mapping, marker stickers, and servo PWM calibration. |
+| 🤖 **[ROS 2 Nodes & Architecture Guide](docs/ros_nodes.md)** | Computational graph, node descriptions, topics, actions, state machine, and launch configurations. |
 | 🐧 **[Jetson Yocto Embedded Linux](https://github.com/vitaliimos/eezybotarm_yocto)** | Custom Yocto layer (`meta-eezybot`) deploying headless bootable ROS 2 Jazzy image for Jetson Orin Nano with auto-start systemd units. |
 
 ---
@@ -88,9 +89,8 @@ flowchart TD
 ## 📦 Packages Overview
 
 ```text
-├── docs/                       # Assembly, Hardware, and Calibration guides & images
-├── scripts/                    # TensorRT engine build & inference verification tools
-├── move.sh                     # Helper script to trigger PickObject action goal
+├── docs/                       # Architecture, Assembly, Hardware, and Calibration guides & images
+├── scripts/                    # Test scripts, TensorRT engine build & inference verification tools
 ├── docker-run.sh               # Dev container execution helper
 └── src/
     ├── eezybotarm_description/ # URDF, Xacro kinematics, meshes, and environment.yaml SSOT
