@@ -1,13 +1,14 @@
 """Cube Detector Node for EezyBotArm YOLO-OBB inference and workspace projection."""
 
-from cv_bridge import CvBridge
-from eezybotarm_interfaces.msg import LocalizedCubeArray, WorkspaceCalibration
 import numpy as np
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import Image
+
+from eezybotarm_interfaces.msg import LocalizedCubeArray, WorkspaceCalibration
 
 from .localized_cube import LocalizedCube
 from .yolo_detector import YoloCubeDetector
@@ -25,8 +26,8 @@ class CubeDetectorNode(Node):
         self.declare_parameter('weights_path', Parameter.Type.STRING)
         self.declare_parameter('conf_threshold', Parameter.Type.DOUBLE)
 
-        weights_path = self.get_parameter('weights_path').value
-        conf_thresh = self.get_parameter('conf_threshold').value
+        weights_path: str = self.get_parameter('weights_path').value
+        conf_thresh: float = self.get_parameter('conf_threshold').value
 
         self.get_logger().info(f'Loading Cube Detector with: "{weights_path}"...')
         try:

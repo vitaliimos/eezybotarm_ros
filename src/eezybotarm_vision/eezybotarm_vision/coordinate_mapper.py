@@ -1,12 +1,18 @@
 """Coordinate mapping from table workspace coordinates to robot base_link frame."""
 
+from typing import ClassVar
+
 from geometry_msgs.msg import PoseStamped
 
 
 class CoordinateMapper:
     """Maps table workspace (x_mm, y_mm) coordinates to robot base_link poses."""
 
-    ZONE_MULTIPLIERS = {'left': 0.5, 'middle': 1.5, 'right': 2.5}
+    ZONE_MULTIPLIERS: ClassVar[dict[str, float]] = {
+        "left": 0.5,
+        "middle": 1.5,
+        "right": 2.5,
+    }
 
     def __init__(
         self,
@@ -26,7 +32,9 @@ class CoordinateMapper:
         self.table_z_m = table_z_m
         self.cube_height_m = cube_height_m
 
-    def table_to_robot_xyz(self, x_mm: float, y_mm: float) -> tuple[float, float, float]:
+    def table_to_robot_xyz(
+        self, x_mm: float, y_mm: float
+    ) -> tuple[float, float, float]:
         """Convert table coordinates (mm) to robot base_link frame (meters)."""
         x_robot = self.robot_x_offset_m + (y_mm / 1000.0)
         center_x_mm = self.table_width_mm / 2.0
@@ -47,7 +55,7 @@ class CoordinateMapper:
         x_m: float,
         y_m: float,
         z_m: float,
-        frame_id: str = 'base_link',
+        frame_id: str = "base_link",
     ) -> PoseStamped:
         """Create a PoseStamped for MoveIt 2 planning."""
         pose = PoseStamped()

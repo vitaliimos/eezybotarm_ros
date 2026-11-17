@@ -1,14 +1,15 @@
 """Debug Visualizer Node for EezyBotArm annotated camera stream."""
 
-from cv_bridge import CvBridge
-from eezybotarm_interfaces.msg import LocalizedCubeArray, WorkspaceCalibration
 import numpy as np
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
+
+from eezybotarm_interfaces.msg import LocalizedCubeArray, WorkspaceCalibration
 
 from .debug_visualizer import DebugVisualizer
 from .localized_cube import LocalizedCube
@@ -24,7 +25,7 @@ class DebugVisualizerNode(Node):
         self.bridge = CvBridge()
 
         self.declare_parameter('debug_image_jpeg_quality', Parameter.Type.INTEGER)
-        jpeg_quality = self.get_parameter('debug_image_jpeg_quality').value
+        jpeg_quality: int = self.get_parameter('debug_image_jpeg_quality').value
 
         self.visualizer = DebugVisualizer(node=self, jpeg_quality=jpeg_quality)
 

@@ -1,8 +1,8 @@
 """Debug visualizer and publisher for EezyBotArm computer vision."""
 
 import cv2
-from cv_bridge import CvBridge
 import numpy as np
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import Header

@@ -2,16 +2,17 @@
 
 import time
 
-from cv_bridge import CvBridge
-from eezybotarm_interfaces.msg import WorkspaceCalibration
 import numpy as np
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import Image
 
-from .zone_detector import detect_zones, smooth_calibration, ZoneDetectionResult
+from eezybotarm_interfaces.msg import WorkspaceCalibration
+
+from .zone_detector import ZoneDetectionResult, detect_zones, smooth_calibration
 
 
 class WorkspaceCalibrationNode(Node):
@@ -29,12 +30,12 @@ class WorkspaceCalibrationNode(Node):
         self.declare_parameter('sticker_width_m', Parameter.Type.DOUBLE)
         self.declare_parameter('sticker_height_m', Parameter.Type.DOUBLE)
 
-        self.recalibration_interval_sec = self.get_parameter('recalibration_interval_sec').value
-        self.calibration_smoothing_alpha = self.get_parameter('calibration_smoothing_alpha').value
-        table_width_m = self.get_parameter('table_width_m').value
-        table_depth_m = self.get_parameter('table_depth_m').value
-        sticker_width_m = self.get_parameter('sticker_width_m').value
-        sticker_height_m = self.get_parameter('sticker_height_m').value
+        self.recalibration_interval_sec: float = self.get_parameter('recalibration_interval_sec').value
+        self.calibration_smoothing_alpha: float = self.get_parameter('calibration_smoothing_alpha').value
+        table_width_m: float = self.get_parameter('table_width_m').value
+        table_depth_m: float = self.get_parameter('table_depth_m').value
+        sticker_width_m: float = self.get_parameter('sticker_width_m').value
+        sticker_height_m: float = self.get_parameter('sticker_height_m').value
 
         self.table_width_mm = table_width_m * 1000.0
         self.table_depth_mm = table_depth_m * 1000.0

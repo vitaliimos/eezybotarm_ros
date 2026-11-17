@@ -3,14 +3,15 @@
 from enum import Enum
 from typing import ClassVar
 
-from eezybotarm_interfaces.action import PickObject
-from eezybotarm_interfaces.msg import LocalizedCubeArray
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from std_msgs.msg import String
+
+from eezybotarm_interfaces.action import PickObject
+from eezybotarm_interfaces.msg import LocalizedCubeArray
 
 from .candidate_tracker import CandidateTracker
 from .coordinate_mapper import CoordinateMapper
@@ -19,43 +20,43 @@ from .yolo_detector import CubeDetection
 
 
 class SortingState(Enum):
-    SCANNING = 'SCANNING'
-    CONFIRMING = 'CONFIRMING'
-    EXECUTING = 'EXECUTING'
-    COOLDOWN = 'COOLDOWN'
+    SCANNING = "SCANNING"
+    CONFIRMING = "CONFIRMING"
+    EXECUTING = "EXECUTING"
+    COOLDOWN = "COOLDOWN"
 
 
 class SortingCoordinatorNode(Node):
     """Track candidate cube stability in the middle zone and dispatch pick-and-place goals."""
 
     TARGET_ZONE_BY_CLASS: ClassVar[dict[str, str]] = {
-        'white_cube': 'left',
-        'green_cube': 'right',
+        "white_cube": "left",
+        "green_cube": "right",
     }
 
     def __init__(self, **kwargs):
-        super().__init__('sorting_coordinator_node', **kwargs)
+        super().__init__("sorting_coordinator_node", **kwargs)
 
         # Coordinator parameters
-        self.declare_parameter('stable_frames_required', Parameter.Type.INTEGER)
-        self.declare_parameter('tracking_tolerance_mm', Parameter.Type.DOUBLE)
-        self.declare_parameter('cooldown_duration_sec', Parameter.Type.DOUBLE)
-        self.declare_parameter('action_name', Parameter.Type.STRING)
+        self.declare_parameter("stable_frames_required", Parameter.Type.INTEGER)
+        self.declare_parameter("tracking_tolerance_mm", Parameter.Type.DOUBLE)
+        self.declare_parameter("cooldown_duration_sec", Parameter.Type.DOUBLE)
+        self.declare_parameter("action_name", Parameter.Type.STRING)
 
         # Physical workspace parameters (supplied via environment.yaml)
-        self.declare_parameter('table_width_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('table_depth_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('robot_x_offset_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('robot_y_offset_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('table_z_m', Parameter.Type.DOUBLE)
-        self.declare_parameter('cube_height_m', Parameter.Type.DOUBLE)
+        self.declare_parameter("table_width_m", Parameter.Type.DOUBLE)
+        self.declare_parameter("table_depth_m", Parameter.Type.DOUBLE)
+        self.declare_parameter("robot_x_offset_m", Parameter.Type.DOUBLE)
+        self.declare_parameter("robot_y_offset_m", Parameter.Type.DOUBLE)
+        self.declare_parameter("table_z_m", Parameter.Type.DOUBLE)
+        self.declare_parameter("cube_height_m", Parameter.Type.DOUBLE)
 
-        stable_frames_required: int = self.get_parameter('stable_frames_required').value
-        tracking_tolerance_mm: float = self.get_parameter('tracking_tolerance_mm').value
+        stable_frames_required: int = self.get_parameter("stable_frames_required").value
+        tracking_tolerance_mm: float = self.get_parameter("tracking_tolerance_mm").value
         self.cooldown_duration_sec: float = self.get_parameter(
-            'cooldown_duration_sec'
+            "cooldown_duration_sec"
         ).value
-        action_name = self.get_parameter('action_name').value
+        action_name = self.get_parameter("action_name").value
 
         self.tracker = CandidateTracker(
             stable_frames_required=stable_frames_required,
@@ -63,12 +64,12 @@ class SortingCoordinatorNode(Node):
         )
 
         self.coord_mapper = CoordinateMapper(
-            table_width_m=self.get_parameter('table_width_m').value,
-            table_depth_m=self.get_parameter('table_depth_m').value,
-            robot_x_offset_m=self.get_parameter('robot_x_offset_m').value,
-            robot_y_offset_m=self.get_parameter('robot_y_offset_m').value,
-            table_z_m=self.get_parameter('table_z_m').value,
-            cube_height_m=self.get_parameter('cube_height_m').value,
+            table_width_m=self.get_parameter("table_width_m").value,
+            table_depth_m=self.get_parameter("table_depth_m").value,
+            robot_x_offset_m=self.get_parameter("robot_x_offset_m").value,
+            robot_y_offset_m=self.get_parameter("robot_y_offset_m").value,
+            table_z_m=self.get_parameter("table_z_m").value,
+            cube_height_m=self.get_parameter("cube_height_m").value,
         )
 
         self.action_client = ActionClient(self, PickObject, action_name)
@@ -76,26 +77,26 @@ class SortingCoordinatorNode(Node):
         latched_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.status_pub = self.create_publisher(
             String,
-            '/eezybotarm_vision/sorting_status',
+            "/eezybotarm_vision/sorting_status",
             latched_qos,
         )
         self.subscription = self.create_subscription(
             LocalizedCubeArray,
-            '/eezybotarm_vision/detections',
+            "/eezybotarm_vision/detections",
             self.detections_callback,
             1,
         )
 
         self._state = SortingState.SCANNING
-        self.current_action_phase = ''
-        self._last_published_status = ''
+        self.current_action_phase = ""
+        self._last_published_status = ""
         self._cooldown_timer = None
 
         self._publish_status()
 
-        self.get_logger().info(f'Initial state: {self._state.value}')
+        self.get_logger().info(f"Initial state: {self._state.value}")
         self.get_logger().info(
-            'Sorting Coordinator Node ready and monitoring /eezybotarm_vision/detections'
+            "Sorting Coordinator Node ready and monitoring /eezybotarm_vision/detections"
         )
 
     @property
@@ -106,15 +107,15 @@ class SortingCoordinatorNode(Node):
     def state(self, new_state: SortingState) -> None:
         if self._state != new_state:
             self.get_logger().info(
-                f'State changed: {self._state.value} -> {new_state.value}'
+                f"State changed: {self._state.value} -> {new_state.value}"
             )
             self._state = new_state
 
     def _format_status(self) -> str:
         if self.state == SortingState.CONFIRMING:
-            return f'CONFIRMING ({self.tracker.frame_count}/{self.tracker.stable_frames_required})'
+            return f"CONFIRMING ({self.tracker.frame_count}/{self.tracker.stable_frames_required})"
         if self.state == SortingState.EXECUTING and self.current_action_phase:
-            return f'EXECUTING [{self.current_action_phase}]'
+            return f"EXECUTING [{self.current_action_phase}]"
         return self.state.value
 
     def _publish_status(self) -> None:
@@ -144,7 +145,7 @@ class SortingCoordinatorNode(Node):
         self._cancel_cooldown_timer()
         if self.state != SortingState.COOLDOWN:
             return
-        self.get_logger().info('Cooldown finished, resumed scanning.')
+        self.get_logger().info("Cooldown finished, resumed scanning.")
         self._reset_to_scanning()
 
     def _update_candidate_tracking(self, middle_cubes: list[LocalizedCube]) -> None:
@@ -154,9 +155,9 @@ class SortingCoordinatorNode(Node):
             self.state = SortingState.CONFIRMING
             self._publish_status()
             self.get_logger().info(
-                f'Cube confirmed: {det.class_name} at '
-                f'({confirmed_cube.x_mm:.1f}, {confirmed_cube.y_mm:.1f}) mm. '
-                'Dispatching pick and place goal!'
+                f"Cube confirmed: {det.class_name} at "
+                f"({confirmed_cube.x_mm:.1f}, {confirmed_cube.y_mm:.1f}) mm. "
+                "Dispatching pick and place goal!"
             )
             self._dispatch_pick_and_place(det, confirmed_cube.x_mm, confirmed_cube.y_mm)
         elif self.tracker.candidate is not None:
@@ -170,13 +171,13 @@ class SortingCoordinatorNode(Node):
             return
 
         all_cubes = [LocalizedCube.from_msg(c) for c in msg.cubes]
-        middle_cubes = [c for c in all_cubes if c.zone == 'middle']
+        middle_cubes = [c for c in all_cubes if c.zone == "middle"]
         self._update_candidate_tracking(middle_cubes)
 
     def _reset_to_scanning(self) -> None:
         self._cancel_cooldown_timer()
         self.tracker.reset()
-        self.current_action_phase = ''
+        self.current_action_phase = ""
         self.state = SortingState.SCANNING
         self._publish_status()
 
@@ -184,7 +185,7 @@ class SortingCoordinatorNode(Node):
         self, det: CubeDetection, pick_x_mm: float, pick_y_mm: float
     ) -> None:
         if not self.action_client.server_is_ready():
-            self.get_logger().warn('Pick-and-place action server not ready!')
+            self.get_logger().warn("Pick-and-place action server not ready!")
             self._reset_to_scanning()
             return
 
@@ -197,7 +198,7 @@ class SortingCoordinatorNode(Node):
             return
 
         self.state = SortingState.EXECUTING
-        self.current_action_phase = 'SENDING_GOAL'
+        self.current_action_phase = "SENDING_GOAL"
         self._publish_status()
 
         x_m, y_m, z_m = self.coord_mapper.table_to_robot_xyz(pick_x_mm, pick_y_mm)
@@ -212,8 +213,8 @@ class SortingCoordinatorNode(Node):
         goal.object_class = det.class_name
 
         self.get_logger().info(
-            f'Sending Goal: {det.class_name} | Pick: ({x_m:.2f}, {y_m:.2f}, {z_m:.2f}) -> '
-            f'Place ({target_zone}): ({px_m:.2f}, {py_m:.2f}, {pz_m:.2f})'
+            f"Sending Goal: {det.class_name} | Pick: ({x_m:.2f}, {y_m:.2f}, {z_m:.2f}) -> "
+            f"Place ({target_zone}): ({px_m:.2f}, {py_m:.2f}, {pz_m:.2f})"
         )
 
         send_goal_future = self.action_client.send_goal_async(
@@ -225,16 +226,16 @@ class SortingCoordinatorNode(Node):
         try:
             goal_handle = future.result()
         except Exception as exc:
-            self.get_logger().error(f'Failed to send pick-and-place goal: {exc}')
+            self.get_logger().error(f"Failed to send pick-and-place goal: {exc}")
             self._reset_to_scanning()
             return
 
         if not goal_handle.accepted:
-            self.get_logger().warn('Goal was rejected by pick-and-place server!')
+            self.get_logger().warn("Goal was rejected by pick-and-place server!")
             self._reset_to_scanning()
             return
 
-        self.get_logger().info('Goal accepted, executing...')
+        self.get_logger().info("Goal accepted, executing...")
         get_result_future = goal_handle.get_result_async()
         get_result_future.add_done_callback(self._action_result_callback)
 
@@ -242,21 +243,21 @@ class SortingCoordinatorNode(Node):
         self.current_action_phase = feedback_msg.feedback.current_phase
         self._publish_status()
         self.get_logger().debug(
-            f'Action phase: {self.current_action_phase} '
-            f'({feedback_msg.feedback.progress_percentage:.0f}%)'
+            f"Action phase: {self.current_action_phase} "
+            f"({feedback_msg.feedback.progress_percentage:.0f}%)"
         )
 
     def _action_result_callback(self, future):
         try:
             result = future.result().result
             self.get_logger().info(
-                f'Pick-and-place completed. Success={result.success}, '
+                f"Pick-and-place completed. Success={result.success}, "
                 f'Time={result.execution_time:.1f}s, Error="{result.error_code}"'
             )
         except Exception as exc:
-            self.get_logger().error(f'Pick-and-place action failed: {exc}')
+            self.get_logger().error(f"Pick-and-place action failed: {exc}")
 
-        self.current_action_phase = ''
+        self.current_action_phase = ""
         self.state = SortingState.COOLDOWN
         self._publish_status()
         self._start_cooldown_timer()
@@ -274,5 +275,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

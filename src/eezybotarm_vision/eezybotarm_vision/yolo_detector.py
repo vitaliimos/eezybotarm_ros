@@ -1,6 +1,7 @@
 """YOLO-OBB cube detector for white and green cubes."""
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import cv2
 import numpy as np
@@ -24,7 +25,10 @@ class CubeDetection:
 class YoloCubeDetector:
     """Detector for green_cube and white_cube using TensorRT or ONNX."""
 
-    CLASS_NAMES = {0: 'green_cube', 1: 'white_cube'}
+    CLASS_NAMES: ClassVar[dict[int, str]] = {
+        0: 'green_cube',
+        1: 'white_cube'
+    }
     INPUT_SHAPE = (640, 640)
 
     def __init__(
