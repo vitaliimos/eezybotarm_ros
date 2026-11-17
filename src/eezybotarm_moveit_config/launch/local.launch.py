@@ -8,28 +8,27 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     bringup = PathJoinSubstitution(
-        [FindPackageShare('eezybotarm_moveit_config'), 'launch', 'bringup.launch.py']
+        [FindPackageShare("eezybotarm_moveit_config"), "launch", "bringup.launch.py"]
     )
     rviz_launch_file = PathJoinSubstitution(
-        [FindPackageShare('eezybotarm_moveit_config'), 'launch', 'rviz.launch.py']
+        [FindPackageShare("eezybotarm_moveit_config"), "launch", "rviz.launch.py"]
     )
     dashboard_launch_file = PathJoinSubstitution(
-        [FindPackageShare('eezybotarm_dashboard'), 'launch', 'dashboard.launch.py']
+        [FindPackageShare("eezybotarm_dashboard"), "launch", "dashboard.launch.py"]
     )
     default_weights_path = PathJoinSubstitution(
-        [FindPackageShare('eezybotarm_vision'), 'models', 'model.onnx']
+        [FindPackageShare("eezybotarm_vision"), "models", "model.onnx"]
     )
 
-    use_mock_hardware = LaunchConfiguration('use_mock_hardware')
-    i2c_bus = LaunchConfiguration('i2c_bus')
-    i2c_address = LaunchConfiguration('i2c_address')
-    pwm_frequency = LaunchConfiguration('pwm_frequency')
-    use_rviz = LaunchConfiguration('use_rviz')
-    use_vision = LaunchConfiguration('use_vision')
-    camera = LaunchConfiguration('camera')
-    video_device = LaunchConfiguration('video_device')
-    weights_path = LaunchConfiguration('weights_path')
-    use_dashboard = LaunchConfiguration('use_dashboard')
+    use_mock_hardware = LaunchConfiguration("use_mock_hardware")
+    pwm_chip = LaunchConfiguration("pwm_chip")
+    pwm_frequency = LaunchConfiguration("pwm_frequency")
+    use_rviz = LaunchConfiguration("use_rviz")
+    use_vision = LaunchConfiguration("use_vision")
+    camera = LaunchConfiguration("camera")
+    video_device = LaunchConfiguration("video_device")
+    weights_path = LaunchConfiguration("weights_path")
+    use_dashboard = LaunchConfiguration("use_dashboard")
 
     dashboard_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(dashboard_launch_file),
@@ -40,71 +39,67 @@ def generate_launch_description():
         condition=IfCondition(use_rviz),
     )
 
-    return LaunchDescription([
-        DeclareLaunchArgument(
-            'use_mock_hardware',
-            default_value='true',
-            description='Use mock hardware interfaces for local development',
-        ),
-        DeclareLaunchArgument(
-            'i2c_bus',
-            default_value='/dev/i2c-7',
-            description='Path to the I2C bus device connected to PCA9685',
-        ),
-        DeclareLaunchArgument(
-            'i2c_address',
-            default_value='0x60',
-            description='I2C slave address of the PCA9685 servo driver',
-        ),
-        DeclareLaunchArgument(
-            'pwm_frequency',
-            default_value='50',
-            description='PWM frequency for servos in Hz',
-        ),
-        DeclareLaunchArgument(
-            'use_rviz',
-            default_value='true',
-            description='Launch RViz for visualization and planning',
-        ),
-        DeclareLaunchArgument(
-            'use_vision',
-            default_value='true',
-            description='Launch vision and sorting coordinator nodes',
-        ),
-        DeclareLaunchArgument(
-            'camera',
-            default_value='mock',
-            choices=['real', 'mock', 'none'],
-            description='Camera streaming mode: mock (image_publisher), real (v4l2_camera), none',
-        ),
-        DeclareLaunchArgument(
-            'video_device',
-            default_value='/dev/video1',
-            description='Path to the V4L2 capture device for the physical camera',
-        ),
-        DeclareLaunchArgument(
-            'weights_path',
-            default_value=default_weights_path,
-            description='Path to YOLO ONNX weights file in eezybotarm_vision',
-        ),
-        DeclareLaunchArgument(
-            'use_dashboard',
-            default_value='true',
-            description='Whether to start the NiceGUI web dashboard alongside local stack',
-        ),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(bringup),
-            launch_arguments={
-                'use_mock_hardware': use_mock_hardware,
-                'i2c_bus': i2c_bus,
-                'i2c_address': i2c_address,
-                'pwm_frequency': pwm_frequency,
-                'use_vision': use_vision,
-                'camera': camera,
-                'video_device': video_device,
-                'weights_path': weights_path,
-            }.items(),
-        ),
-        dashboard_launch,
-        rviz_launch,
-    ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument(
+                "use_mock_hardware",
+                default_value="true",
+                description="Use mock hardware interfaces for local development",
+            ),
+            DeclareLaunchArgument(
+                "pwm_chip",
+                default_value="",
+                description="Path to PWM chip sysfs directory or parent pwm/ directory",
+            ),
+            DeclareLaunchArgument(
+                "pwm_frequency",
+                default_value="50",
+                description="PWM frequency for servos in Hz",
+            ),
+            DeclareLaunchArgument(
+                "use_rviz",
+                default_value="true",
+                description="Launch RViz for visualization and planning",
+            ),
+            DeclareLaunchArgument(
+                "use_vision",
+                default_value="true",
+                description="Launch vision and sorting coordinator nodes",
+            ),
+            DeclareLaunchArgument(
+                "camera",
+                default_value="mock",
+                choices=["real", "mock", "none"],
+                description="Camera streaming mode: mock (image_publisher), real (v4l2_camera), none",
+            ),
+            DeclareLaunchArgument(
+                "video_device",
+                default_value="/dev/video1",
+                description="Path to the V4L2 capture device for the physical camera",
+            ),
+            DeclareLaunchArgument(
+                "weights_path",
+                default_value=default_weights_path,
+                description="Path to YOLO ONNX weights file in eezybotarm_vision",
+            ),
+            DeclareLaunchArgument(
+                "use_dashboard",
+                default_value="true",
+                description="Whether to start the NiceGUI web dashboard alongside local stack",
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(bringup),
+                launch_arguments={
+                    "use_mock_hardware": use_mock_hardware,
+                    "pwm_chip": pwm_chip,
+                    "pwm_frequency": pwm_frequency,
+                    "use_vision": use_vision,
+                    "camera": camera,
+                    "video_device": video_device,
+                    "weights_path": weights_path,
+                }.items(),
+            ),
+            dashboard_launch,
+            rviz_launch,
+        ]
+    )

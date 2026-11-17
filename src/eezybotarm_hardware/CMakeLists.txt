@@ -14,7 +14,6 @@ find_package(rclcpp_lifecycle REQUIRED)
 
 add_library(eezybotarm_hardware SHARED
   src/eezybotarm_hardware.cpp
-  src/pca9685.cpp
 )
 
 target_include_directories(eezybotarm_hardware PUBLIC
@@ -32,6 +31,7 @@ ament_target_dependencies(${PROJECT_NAME}
 pluginlib_export_plugin_description_file(hardware_interface eezybotarm_hardware.xml)
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
@@ -41,6 +41,11 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gtest(test_eezybotarm_hardware
+    test/test_eezybotarm_hardware.cpp
+  )
+  target_link_libraries(test_eezybotarm_hardware ${PROJECT_NAME})
 endif()
 
 install(TARGETS ${PROJECT_NAME}

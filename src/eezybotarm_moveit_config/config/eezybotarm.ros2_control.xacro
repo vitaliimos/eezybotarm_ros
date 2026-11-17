@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="eezybotarm_ros2_control" params="name initial_positions_file use_mock_hardware i2c_bus i2c_address pwm_frequency">
+    <xacro:macro name="eezybotarm_ros2_control" params="name initial_positions_file use_mock_hardware pwm_frequency pwm_chip">
         <xacro:property name="initial_positions" value="${xacro.load_yaml(initial_positions_file)['initial_positions']}"/>
 
         <ros2_control name="${name}" type="system">
@@ -10,8 +10,7 @@
                 </xacro:if>
                 <xacro:unless value="${use_mock_hardware}">
                     <plugin>eezybotarm_hardware/EezyBotArmHardware</plugin>
-                    <param name="i2c_bus">${i2c_bus}</param>
-                    <param name="i2c_address">${i2c_address}</param>
+                    <param name="pwm_chip">${pwm_chip}</param>
                     <param name="pwm_frequency">${pwm_frequency}</param>
                 </xacro:unless>
             </hardware>
@@ -21,7 +20,7 @@
                 <state_interface name="position">
                   <param name="initial_value">${initial_positions['waist_joint']}</param>
                 </state_interface>
-                <param name="pca_channel">0</param>
+                <param name="pwm_channel">0</param>
                 <param name="rad_min">-1.5708</param>
                 <param name="rad_max">1.5708</param>
                 <param name="us_min">600</param>
@@ -34,7 +33,7 @@
                 <state_interface name="position">
                   <param name="initial_value">${initial_positions['shoulder_joint']}</param>
                 </state_interface>
-                <param name="pca_channel">1</param>
+                <param name="pwm_channel">1</param>
                 <param name="rad_min">-1.5708</param>
                 <param name="rad_max">1.5708</param>
                 <param name="us_min">600</param>
@@ -45,7 +44,7 @@
                 <state_interface name="position">
                   <param name="initial_value">${initial_positions['elbow_joint']}</param>
                 </state_interface>
-                <param name="pca_channel">2</param>
+                <param name="pwm_channel">2</param>
                 <param name="rad_min">-1.5708</param>
                 <param name="rad_max">1.5708</param>
                 <param name="us_min">600</param>
@@ -57,7 +56,7 @@
                 <state_interface name="position">
                   <param name="initial_value">${initial_positions['finger_left_joint']}</param>
                 </state_interface>
-                <param name="pca_channel">3</param>
+                <param name="pwm_channel">3</param>
                 <param name="rad_min">-1.5708</param>
                 <param name="rad_max">1.5708</param>
                 <param name="us_min">600</param>

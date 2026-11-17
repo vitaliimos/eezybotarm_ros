@@ -3,46 +3,51 @@
 #include <string>
 #include <vector>
 
-#include "eezybotarm_hardware/pca9685.hpp"
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
-#include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
 namespace eezybotarm_hardware
 {
 
-class EezyBotArmHardware : public hardware_interface::SystemInterface
-{
+class EezyBotArmHardware : public hardware_interface::SystemInterface {
 public:
+  static constexpr int kMaxChannels = 16;
+
   RCLCPP_SHARED_PTR_DEFINITIONS(EezyBotArmHardware)
 
-  hardware_interface::CallbackReturn on_init(
-    const hardware_interface::HardwareComponentInterfaceParams & params) override;
+  ~EezyBotArmHardware() override;
 
-  hardware_interface::CallbackReturn on_configure(
-    const rclcpp_lifecycle::State & previous_state) override;
+  hardware_interface::CallbackReturn
+  on_init(const hardware_interface::HardwareComponentInterfaceParams & params)
+  override;
 
-  hardware_interface::CallbackReturn on_activate(
-    const rclcpp_lifecycle::State & previous_state) override;
+  hardware_interface::CallbackReturn
+  on_configure(const rclcpp_lifecycle::State & previous_state) override;
 
-  hardware_interface::CallbackReturn on_deactivate(
-    const rclcpp_lifecycle::State & previous_state) override;
+  hardware_interface::CallbackReturn
+  on_activate(const rclcpp_lifecycle::State & previous_state) override;
 
-  hardware_interface::CallbackReturn on_shutdown(
-    const rclcpp_lifecycle::State & previous_state) override;
+  hardware_interface::CallbackReturn
+  on_deactivate(const rclcpp_lifecycle::State & previous_state) override;
 
-  hardware_interface::CallbackReturn on_error(
-    const rclcpp_lifecycle::State & previous_state) override;
+  hardware_interface::CallbackReturn
+  on_shutdown(const rclcpp_lifecycle::State & previous_state) override;
 
-  std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
-  std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
+  hardware_interface::CallbackReturn
+  on_error(const rclcpp_lifecycle::State & previous_state) override;
+
+  std::vector<hardware_interface::StateInterface>
+  export_state_interfaces() override;
+  std::vector<hardware_interface::CommandInterface>
+  export_command_interfaces() override;
 
   hardware_interface::return_type read(
-    const rclcpp::Time & time, const rclcpp::Duration & period) override;
+    const rclcpp::Time & time,
+    const rclcpp::Duration & period) override;
 
-  hardware_interface::return_type write(
-    const rclcpp::Time & time, const rclcpp::Duration & period) override;
+  hardware_interface::return_type
+  write(const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
   struct Servo
   {
@@ -53,19 +58,25 @@ public:
     double us_max = 0.0;
     double gear_ratio = 1.0;
     bool invert = false;
+
+    int duty_fd = -1;
+    int enable_fd = -1;
+    long last_duty_ns = -1;
+    bool enabled = false;
   };
 
 private:
-  std::string i2c_bus_;
-  int i2c_address_ = 0;
-  double pwm_frequency_ = 0.0;
+  void close_fds();
+  bool disable_all();
+
+  std::string pwm_chip_;
+  long period_ns_ = 0;
 
   std::vector<Servo> servos_;
   std::vector<double> hw_commands_;
   std::vector<double> hw_states_;
 
-  Pca9685 pca_;
   int write_failures_ = 0;
 };
 
-}  // namespace eezybotarm_hardware
+} // namespace eezybotarm_hardware

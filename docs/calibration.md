@@ -64,7 +64,7 @@ Servo parameters are configured in [`src/eezybotarm_moveit_config/config/eezybot
 ```xml
 <!-- Waist Joint (Rotates the arm base) -->
 <joint name="waist_joint">
-    <param name="pca_channel">0</param>
+    <param name="pwm_channel">0</param>
     <param name="rad_min">-1.5708</param>
     <param name="rad_max">1.5708</param>
     <param name="us_min">600</param>
@@ -75,7 +75,7 @@ Servo parameters are configured in [`src/eezybotarm_moveit_config/config/eezybot
 
 <!-- Shoulder Joint (Elevates primary link) -->
 <joint name="shoulder_joint">
-    <param name="pca_channel">1</param>
+    <param name="pwm_channel">1</param>
     <param name="rad_min">-1.5708</param>
     <param name="rad_max">1.5708</param>
     <param name="us_min">600</param>
@@ -84,7 +84,7 @@ Servo parameters are configured in [`src/eezybotarm_moveit_config/config/eezybot
 
 <!-- Elbow Joint (Forearm elevation via parallel linkage) -->
 <joint name="elbow_joint">
-    <param name="pca_channel">2</param>
+    <param name="pwm_channel">2</param>
     <param name="rad_min">-1.5708</param>
     <param name="rad_max">1.5708</param>
     <param name="us_min">600</param>
@@ -94,7 +94,7 @@ Servo parameters are configured in [`src/eezybotarm_moveit_config/config/eezybot
 
 <!-- Parallel Gripper -->
 <joint name="finger_left_joint">
-    <param name="pca_channel">3</param>
+    <param name="pwm_channel">3</param>
     <param name="rad_min">-1.5708</param>
     <param name="rad_max">1.5708</param>
     <param name="us_min">600</param>

@@ -18,7 +18,7 @@ This document describes the electrical architecture, Bill of Materials (BOM), pi
 ### 2. Actuation & Servo Driver
 | Component | Model / Spec | Qty | Role / Notes |
 | :--- | :--- | :--- | :--- |
-| **PWM Driver** | PCA9685 16-Channel 12-bit PWM Board | 1 | Driven via I2C (`/dev/i2c-7` on Jetson, address `0x60`, 50 Hz). Located inside arm base cavity. |
+| **PWM Driver** | PCA9685 16-Channel 12-bit PWM Board | 1 | Configured via Device Tree (`nxp,pca9685-pwm` on I2C7 `/bus@0/i2c@c250000`, address `0x60`), driven via Linux PWM sysfs (`/sys/class/pwm/pwmchipN`) at 50 Hz. Located inside arm base cavity. |
 | **Nut Isolation Cap** | 3D Printed Protective Cap ([`m6_cap.stl`](models/m6_cap.stl)) | 1 | Non-conductive cap press-fit over the M6 base mounting nut to prevent shorts and protect the PCA9685 board. |
 | **Base / Waist Servo** | MG996R (Metal Gear, 180°) | 1 | Channel 0. Joint `waist_joint` (2:1 gear ratio, inverted direction). |
 | **Shoulder Servo** | MG996R (Metal Gear, 180°) | 1 | Channel 1. Joint `shoulder_joint`. |
@@ -92,7 +92,7 @@ flowchart TD
 
 ### 1. Jetson Orin Nano 40-Pin Header to PCA9685
 
-The hardware interface (`src/eezybotarm_hardware`) communicates over Linux I2C (`/dev/i2c-7` on Jetson Orin Nano) at address `0x60`.
+The PCA9685 board is wired to the Jetson Orin Nano 40-pin header I2C1/I2C7 bus (`c250000.i2c`, address `0x60`) and bound to the Linux kernel `pwm-pca9685` driver via Device Tree (`compatible = "nxp,pca9685-pwm"`). The hardware interface (`src/eezybotarm_hardware`) requires `pwm_chip` (defaulting to `/sys/bus/i2c/devices/7-0060/pwm` in `jetson.launch.py`) and writes channel `period` and `duty_cycle` values via PWM sysfs.
 
 | Jetson 40-Pin Header Pin | Signal Name | PCA9685 Pin | Description |
 | :--- | :--- | :--- | :--- |
@@ -104,7 +104,7 @@ The hardware interface (`src/eezybotarm_hardware`) communicates over Linux I2C (
 | *External 5V supply (-)* | GND | **GND (Terminal Block)** | Servo ground (connected to logic GND on board) |
 
 > [!NOTE]
-> On the NVIDIA Jetson Orin Nano, the physical I2C pins (Pins 3 and 5) map to device `/dev/i2c-7`. The default configuration in `src/eezybotarm_moveit_config/launch/jetson.launch.py` uses `i2c_bus:=/dev/i2c-7` and `i2c_address:=0x60`.
+> On the NVIDIA Jetson Orin Nano, physical header pins 3 and 5 correspond to `/bus@0/i2c@c250000` (I2C7). The Yocto image enables `CONFIG_PWM_PCA9685=y` and applies `tegra234-eezybot-pca9685.dtbo` so the kernel registers the PCA9685 under `/sys/class/pwm/pwmchip*`.
 
 ---
 

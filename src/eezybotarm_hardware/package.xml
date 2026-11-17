@@ -3,7 +3,7 @@
 <package format="3">
   <name>eezybotarm_hardware</name>
   <version>0.0.0</version>
-  <description>ros2_control hardware interface for PCA9685 I2C servo controller driving EezyBotArm</description>
+  <description>ros2_control hardware interface driving PCA9685 servos via Linux PWM sysfs</description>
   <maintainer email="mostipaka.vitalii@gmail.com">Vitalii Mostipaka</maintainer>
   <license>MIT</license>
 
@@ -14,6 +14,7 @@
   <depend>pluginlib</depend>
   <depend>rclcpp_lifecycle</depend>
 
+  <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
